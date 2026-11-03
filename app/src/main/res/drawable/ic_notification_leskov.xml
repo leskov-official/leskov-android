@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Circular emblem outer silhouette -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M12,2A10,10 0 1,0 22,12A10,10 0 0,0 12,2Z" />
+
+    <!-- Musical sound waves and ornament flow inside silhouette -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M7.2,14.5 C6.8,14.2 6.5,13.6 6.5,12.8 C6.5,10.6 8.3,8.8 10.5,8.8 C11.5,8.8 12.4,9.2 13.0,9.9 C13.4,9.2 14.1,8.6 15.0,8.6 C16.2,8.6 17.2,9.6 17.2,10.8 C17.2,12.2 15.8,13.4 14.5,14.4 L12.0,16.4 L9.5,14.4 C8.5,13.6 7.8,13.1 7.2,14.5 Z M10.5,10.2 C9.1,10.2 8.0,11.3 8.0,12.7 C8.0,13.2 8.2,13.6 8.5,13.9 C9.2,13.1 10.2,12.5 11.2,12.0 C11.0,11.0 10.8,10.4 10.5,10.2 Z" />
+
+    <!-- Flowing cursive initial / musical wave detail -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round"
+        android:pathData="M6.5,15.2 Q10,13.2 12,14.2 T17.5,12.5" />
+</vector>

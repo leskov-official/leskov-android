@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="leskov_background">#090B17</color>
+    <color name="leskov_surface">#111428</color>
+    <color name="leskov_accent">#9B8CFB</color>
+    <color name="splash_background">#FFFFFF</color>
+
+    <!-- Main App Theme (Dark LESKOV) -->
+    <style name="Theme.MyApplication" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/leskov_background</item>
+        <item name="android:navigationBarColor">@color/leskov_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+    <!-- Splash Screen Theme (Pure White #FFFFFF with original centered logo scaled safely) -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="postSplashScreenTheme">@style/Theme.MyApplication</item>
+    </style>
+</resources>

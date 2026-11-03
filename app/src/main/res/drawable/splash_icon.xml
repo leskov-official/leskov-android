@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 12+ Splash Screen icon with 22% inset (occupies ~56% of diameter).
+    This ensures the original round LESKOV emblem is completely visible without clipping
+    by the circular windowSplashScreen mask.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/leskov_logo"
+    android:inset="22%" />

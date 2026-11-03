@@ -1,0 +1,23 @@
+<resources>
+    <string name="app_name">LESKOV</string>
+    <string name="app_subtitle">Музыка · Сообщество</string>
+    <string name="offline_title">Нет соединения</string>
+    <string name="offline_desc">LESKOV работает через защищённое соединение. Проверьте интернет и попробуйте снова.</string>
+    <string name="retry">Попробовать снова</string>
+    <string name="reload">Обновить страницу</string>
+    <string name="menu_privacy">Политика конфиденциальности</string>
+    <string name="menu_terms">Правила сообщества и безопасность</string>
+    <string name="menu_delete_account">Удаление аккаунта</string>
+    <string name="menu_share">Поделиться ссылкой</string>
+    <string name="menu_clear_cache">Очистить кэш</string>
+    <string name="nav_home">Главная</string>
+    <string name="nav_feed">Лента</string>
+    <string name="nav_search">Поиск</string>
+    <string name="nav_messages">Чаты</string>
+    <string name="nav_profile">Профиль</string>
+    <string name="file_chooser_error">Выбор файлов недоступен на данном устройстве</string>
+    <string name="link_open_error">Не удалось открыть внешнюю ссылку</string>
+    <string name="download_started">Загрузка началась</string>
+    <string name="download_failed">Не удалось загрузить файл</string>
+    <string name="media_channel_name">LESKOV · Музыка</string>
+</resources>
