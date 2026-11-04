@@ -1,15 +1,14 @@
-# LESKOV Android 3.1 — development sources
+# LESKOV Android 3.3 — source project
 
-Kotlin, Jetpack Compose, WebView, Media3. Supports API 26–36 (target API 36).
+Android 8.0+ (API 26), target/compile API 36. Kotlin + Jetpack Compose + WebView + Media3.
 
-**No verified installable APK is included.** This environment did not have Android SDK and Gradle. To build a debug APK, see `../BUILD_APK_GITHUB_RU.md` and `.github/workflows/android.yml`.
+## Debug APK
 
-The exported project does not include `gradle/wrapper/gradle-wrapper.jar`. Until a real wrapper is generated, use system `gradle` 9.3.1 or GitHub Actions. Once Gradle is available, run `gradle wrapper --gradle-version 9.3.1` and then:
+For the latest installable build, use the GitHub workflow `.github/workflows/android.yml`:
+`LESKOV Android — build, test and APK`. The last **verified** green workflow is build #5 for version 3.2. New 3.3 changes in this source archive **have not yet been compiled**; they require another push/Actions run.
 
-```bash
-./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
-```
+There is no valid prebuilt APK inside this ZIP. GitHub Actions installs Java 21, Android SDK 36 and Gradle 9.3.1, runs `:app:assembleDebug`, `:app:testDebugUnitTest` and `:app:lintDebug`, and uploads an APK artifact. The local `gradlew` wrapper JAR is not bundled; use `gradle` 9.3.1 or generate the wrapper with `gradle wrapper`.
 
-The real Firebase Android client config is optional for a debug build, but **required for native push**. Server-side FCM keys must never be bundled here.
+See `docs/LESKOV_3_3_CHANGES_RU.md` for exact fixes, remaining server-side requirements and what needs Samsung verification. ADB crash capture helper: `tools/CAPTURE_ANDROID_CRASH_RU.sh`.
 
-See `docs/RELEASE_CHECKLIST_RU.md`, `../README_RU.md` and `../AUDIT_3_1_RU.md` for test evidence and limitations.
+**Firebase:** native FCM push requires a real `google-services.json` provided privately through GitHub Actions Secrets and a configured backend. Never commit private keys or credentials. Music notifications use Android MediaSession independently of FCM.

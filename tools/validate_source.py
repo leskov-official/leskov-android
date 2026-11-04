@@ -92,6 +92,20 @@ try:
  check('Audio eligibility smoke test '+_result.stdout.strip(),_result.returncode==0)
 except Exception as _e:check('Audio eligibility smoke test: '+str(_e),False)
 
+# LESKOV 3.3 screen/renderer/media regressions.
+check('No root CSS zoom that breaks fixed modals', 'html { zoom:' not in web)
+check('WebView renderer death is handled', 'onRenderProcessGone(' in web and 'activity.recreate()' in web)
+check('Native playback state reaches newly loaded PHP pages', 'publishNativeSessionToPage(it)' in web)
+check('Media bridge supplies position and duration', 'positionMs:pos,durationMs:len' in web)
+check('Media3 state is never displayed as a second native bottom bar', 'LeskovMiniPlayer(' not in main)
+check('Media notification publishes real duration', 'METADATA_KEY_DURATION' in media)
+check('Media playlist arrows depend on site capabilities', 'if (canNext) builder.addAction' in media)
+check('Artwork bitmaps are downsampled for memory safety', 'inJustDecodeBounds = true' in media and '512' in media)
+check('Adaptive launcher has white backing', '#FFFFFFFF' in (root/'app/src/main/res/drawable/ic_launcher_background.xml').read_text())
+check('Guest authorization gate is compact', '.widthIn(max = 370.dp)' in auth)
+check('Direct feed URL is never replaced with profile navigation', 'path = "feed.php"' in (root/'app/src/main/java/com/example/model/NavigationItem.kt').read_text())
+check('Navigation awaits actual PHP load for currentUrl', 'currentUrl = targetUrl' not in (root/'app/src/main/java/com/example/viewmodel/LeskovViewModel.kt').read_text().split('fun onTabSelected(')[1].split('fun clearAppCache(')[0])
+
 print(f'Static checks: {len(passed)} PASS, {len(errors)} FAIL')
 for x in errors:print('FAIL:',x)
 if errors:sys.exit(1)

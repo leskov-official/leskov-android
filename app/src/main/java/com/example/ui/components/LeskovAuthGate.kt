@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -87,16 +88,17 @@ fun LeskovAuthGate(
         modifier = modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(Color(0xFF131630), LeskovBackground)))
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
+                .widthIn(max = 370.dp)
+                .clip(RoundedCornerShape(22.dp))
                 .background(LeskovSurface.copy(alpha = 0.96f))
                 .border(1.dp, LeskovPrimary.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
-                .padding(horizontal = 24.dp, vertical = 28.dp)
+                .padding(horizontal = 16.dp, vertical = 18.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -104,7 +106,7 @@ fun LeskovAuthGate(
             // Original circular artwork logo
             Box(
                 modifier = Modifier
-                    .size(92.dp)
+                    .size(66.dp)
                     .clip(CircleShape)
                     .border(2.dp, LeskovPrimary.copy(alpha = 0.5f), CircleShape),
                 contentAlignment = Alignment.Center
@@ -112,7 +114,7 @@ fun LeskovAuthGate(
                 Image(
                     painter = painterResource(id = R.drawable.leskov_logo),
                     contentDescription = "LESKOV",
-                    modifier = Modifier.size(92.dp)
+                    modifier = Modifier.size(66.dp)
                 )
             }
 
@@ -152,9 +154,9 @@ fun LeskovAuthGate(
                     text = title,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
+                        fontSize = 17.sp,
                         color = LeskovOnBackground,
-                        lineHeight = 24.sp
+                        lineHeight = 22.sp
                     ),
                     textAlign = TextAlign.Center
                 )
@@ -167,13 +169,13 @@ fun LeskovAuthGate(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = LeskovTextMuted,
-                        lineHeight = 20.sp
+                        lineHeight = 18.sp
                     ),
                     textAlign = TextAlign.Center
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Primary Login button
             Button(
@@ -186,7 +188,7 @@ fun LeskovAuthGate(
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(46.dp)
                     .scale(loginScale)
                     .testTag("auth_gate_login_button")
             ) {
@@ -212,7 +214,7 @@ fun LeskovAuthGate(
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(46.dp)
                     .scale(registerScale)
                     .testTag("auth_gate_register_button")
             ) {

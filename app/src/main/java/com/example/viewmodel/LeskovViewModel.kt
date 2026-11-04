@@ -163,8 +163,9 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
             _uiState.update {
                 it.copy(
                     selectedTabIndex = index,
-                    showAuthGate = false,
-                    currentUrl = targetUrl
+                    showAuthGate = false
+                    // currentUrl only changes when the server actually loads the page.
+                    // Pre-setting it caused stale URL/tab state after redirects.
                 )
             }
             // Tapping the already-open tab must not reload PHP and interrupt music.

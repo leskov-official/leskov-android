@@ -75,6 +75,21 @@ class ExampleRobolectricTest {
   }
 
   @Test
+  fun `authenticated feed navigation points to feed and not profile`() {
+    val viewModel = LeskovViewModel(app)
+    viewModel.onUserSessionDetected(42)
+    val feedUrl = viewModel.onTabSelected(1)
+    assertEquals("https://lesv.online/feed.php?lang=ru", feedUrl)
+    assertFalse(viewModel.uiState.value.showAuthGate)
+    assertEquals(1, viewModel.uiState.value.selectedTabIndex)
+    // The view model must follow the actual completed route, not assume the PHP page loaded.
+    assertEquals("https://lesv.online/index.php?lang=ru", viewModel.uiState.value.currentUrl)
+    viewModel.onUrlChanged(feedUrl!!)
+    assertEquals(1, viewModel.uiState.value.selectedTabIndex)
+    assertTrue(viewModel.uiState.value.currentUrl.endsWith("feed.php?lang=ru"))
+  }
+
+  @Test
   fun `login and register actions dismiss auth gate and load real auth urls`() {
     val viewModel = LeskovViewModel(app)
     viewModel.onTabSelected(1) // trigger auth gate for feed.php

@@ -40,6 +40,10 @@ class LeskovMediaService : Service() {
     private var currentArtist: String = "Igor Leskov"
     private var artworkUrl: String = ""
     private var artworkBitmap: Bitmap? = null
+    private var playbackPositionMs: Long = 0L
+    private var playbackDurationMs: Long = 0L
+    private var canPrevious: Boolean = false
+    private var canNext: Boolean = false
     private var mediaSession: MediaSession? = null
 
     private var isReceiverRegistered = false
@@ -84,6 +88,9 @@ class LeskovMediaService : Service() {
                 override fun onPlay() { notifyWebClientsPlay() }
                 override fun onPause() { notifyWebClientsPause() }
                 override fun onStop() { notifyWebClientsPause() }
+                override fun onSkipToNext() { if (canNext) notifyWebClientsNext() }
+                override fun onSkipToPrevious() { if (canPrevious) notifyWebClientsPrevious() }
+                override fun onSeekTo(pos: Long) { if (playbackDurationMs > 0L) notifyWebClientsSeek(pos) }
             })
             setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
             isActive = true
@@ -101,9 +108,23 @@ class LeskovMediaService : Service() {
                 val title = intent.getStringExtra(EXTRA_TITLE) ?: currentTitle
                 val artist = intent.getStringExtra(EXTRA_ARTIST) ?: currentArtist
                 val cover = intent.getStringExtra(EXTRA_ARTWORK).orEmpty()
+                playbackPositionMs = intent.getLongExtra(EXTRA_POSITION, 0L).coerceAtLeast(0L)
+                playbackDurationMs = intent.getLongExtra(EXTRA_DURATION, 0L).coerceAtLeast(0L)
+                canPrevious = intent.getBooleanExtra(EXTRA_CAN_PREVIOUS, false)
+                canNext = intent.getBooleanExtra(EXTRA_CAN_NEXT, false)
                 startPlayback(title, artist, cover)
             }
+            ACTION_PROGRESS -> {
+                playbackPositionMs = intent.getLongExtra(EXTRA_POSITION, 0L).coerceAtLeast(0L)
+                playbackDurationMs = intent.getLongExtra(EXTRA_DURATION, 0L).coerceAtLeast(0L)
+                canPrevious = intent.getBooleanExtra(EXTRA_CAN_PREVIOUS, false)
+                canNext = intent.getBooleanExtra(EXTRA_CAN_NEXT, false)
+                publishMediaSessionState()
+            }
             ACTION_PAUSE -> {
+                // Retain the last scrubber position even when browser playback pauses.
+                playbackPositionMs = intent.getLongExtra(EXTRA_POSITION, playbackPositionMs).coerceAtLeast(0L)
+                playbackDurationMs = intent.getLongExtra(EXTRA_DURATION, playbackDurationMs).coerceAtLeast(0L)
                 // Simply update the service playback state and notification.
                 // CRITICAL: DO NOT call notifyWebClientsPause() here, because this intent
                 // was sent FROM the web player reporting its pause state! Calling notifyWebClientsPause()
@@ -119,6 +140,8 @@ class LeskovMediaService : Service() {
                     notifyWebClientsPlay()
                 }
             }
+            ACTION_USER_PREVIOUS -> { if (canPrevious) notifyWebClientsPrevious() }
+            ACTION_USER_NEXT -> { if (canNext) notifyWebClientsNext() }
             ACTION_USER_STOP -> {
                 // Triggered by the user clicking Close in the native Android notification
                 stopPlayback()
@@ -153,14 +176,19 @@ class LeskovMediaService : Service() {
         mediaSession?.isActive = true
         publishMediaSessionState()
         val notification = buildNotification(isPlaying, currentTitle, currentArtist)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Unable to promote web playback notification to foreground", e)
+            stopSelf()
         }
     }
 
@@ -233,7 +261,14 @@ class LeskovMediaService : Service() {
                     }
                     output.toByteArray()
                 }
-                val options = BitmapFactory.Options().apply { inSampleSize = 2 }
+                // A 2MB compressed JPEG can still decode into a huge bitmap and crash
+                // the UI process or exceed Binder limits when sent as media artwork.
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                if (bounds.outWidth < 1 || bounds.outHeight < 1) return@Thread
+                var sample = 1
+                while ((bounds.outWidth / sample) > 512 || (bounds.outHeight / sample) > 512) sample *= 2
+                val options = BitmapFactory.Options().apply { inSampleSize = sample }
                 val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return@Thread
                 Handler(Looper.getMainLooper()).post {
                     if (raw == artworkUrl && isPlaying) {
@@ -254,16 +289,20 @@ class LeskovMediaService : Service() {
     private fun publishMediaSessionState() {
         val s = mediaSession ?: return
         val state = if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
-        val actions = PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
+        var actions = PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
             PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_STOP
+        if (playbackDurationMs > 0L) actions = actions or PlaybackState.ACTION_SEEK_TO
+        if (canPrevious) actions = actions or PlaybackState.ACTION_SKIP_TO_PREVIOUS
+        if (canNext) actions = actions or PlaybackState.ACTION_SKIP_TO_NEXT
         s.setPlaybackState(PlaybackState.Builder()
             .setActions(actions)
-            .setState(state, PlaybackState.PLAYBACK_POSITION_UNKNOWN, if (isPlaying) 1.0f else 0.0f)
+            .setState(state, playbackPositionMs, if (isPlaying) 1.0f else 0.0f)
             .build())
         val metadata = MediaMetadata.Builder()
             .putString(MediaMetadata.METADATA_KEY_TITLE, currentTitle)
             .putString(MediaMetadata.METADATA_KEY_ARTIST, currentArtist)
             .putString(MediaMetadata.METADATA_KEY_ALBUM, "LESKOV")
+        if (playbackDurationMs > 0L) metadata.putLong(MediaMetadata.METADATA_KEY_DURATION, playbackDurationMs)
         val image = artworkBitmap ?: try {
             BitmapFactory.decodeResource(resources, R.drawable.leskov_logo)
         } catch (_: Exception) { null }
@@ -327,6 +366,14 @@ class LeskovMediaService : Service() {
             null
         }
 
+        val previousPendingIntent = PendingIntent.getService(
+            this, 4, Intent(this, LeskovMediaService::class.java).apply { action = ACTION_USER_PREVIOUS },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val nextPendingIntent = PendingIntent.getService(
+            this, 5, Intent(this, LeskovMediaService::class.java).apply { action = ACTION_USER_NEXT },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(artist)
@@ -338,11 +385,16 @@ class LeskovMediaService : Service() {
             .setOngoing(playing)
             .setShowWhen(false)
             .setColor(0xFF9B8CFB.toInt())
-            .addAction(playPauseIcon, playPauseTitle, togglePendingIntent)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Закрыть", stopPendingIntent)
-            .setStyle(Notification.MediaStyle()
-                .setMediaSession(mediaSession?.sessionToken)
-                .setShowActionsInCompactView(0))
+
+        // Show arrows only when the website has confirmed its playlist supports them.
+        if (canPrevious) builder.addAction(android.R.drawable.ic_media_previous, "Назад", previousPendingIntent)
+        val toggleIndex = if (canPrevious) 1 else 0
+        builder.addAction(playPauseIcon, playPauseTitle, togglePendingIntent)
+        if (canNext) builder.addAction(android.R.drawable.ic_media_next, "Далее", nextPendingIntent)
+        builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Закрыть", stopPendingIntent)
+        builder.setStyle(Notification.MediaStyle()
+            .setMediaSession(mediaSession?.sessionToken)
+            .setShowActionsInCompactView(toggleIndex))
 
         val image = artworkBitmap ?: largeIconBitmap
         if (image != null) builder.setLargeIcon(image)
@@ -370,6 +422,9 @@ class LeskovMediaService : Service() {
 
         const val ACTION_PLAY = "com.example.media.ACTION_PLAY"
         const val ACTION_PAUSE = "com.example.media.ACTION_PAUSE"
+        const val ACTION_PROGRESS = "com.example.media.ACTION_PROGRESS"
+        const val ACTION_USER_PREVIOUS = "com.example.media.ACTION_USER_PREVIOUS"
+        const val ACTION_USER_NEXT = "com.example.media.ACTION_USER_NEXT"
         const val ACTION_USER_TOGGLE_PLAY_PAUSE = "com.example.media.ACTION_USER_TOGGLE_PLAY_PAUSE"
         const val ACTION_USER_STOP = "com.example.media.ACTION_USER_STOP"
         private const val ACTION_HANDOFF_SILENT = "com.example.media.ACTION_HANDOFF_SILENT"
@@ -377,12 +432,20 @@ class LeskovMediaService : Service() {
         const val EXTRA_TITLE = "extra_title"
         const val EXTRA_ARTIST = "extra_artist"
         const val EXTRA_ARTWORK = "extra_artwork"
+        const val EXTRA_POSITION = "extra_position_ms"
+        const val EXTRA_DURATION = "extra_duration_ms"
+        const val EXTRA_CAN_PREVIOUS = "extra_can_previous"
+        const val EXTRA_CAN_NEXT = "extra_can_next"
 
         // State deduplication to prevent spurious intent churning
         private var lastReportedState: Boolean? = null
         private var lastReportedTitle: String? = null
         private var lastReportedArtist: String? = null
         private var lastReportedArtwork: String? = null
+        private var lastReportedPosition: Long = -1L
+        private var lastReportedDuration: Long = -1L
+        private var lastReportedCanPrevious = false
+        private var lastReportedCanNext = false
 
         // Callback listeners for webview action binding
         var onMediaActionRequested: ((action: String) -> Unit)? = null
@@ -394,18 +457,30 @@ class LeskovMediaService : Service() {
         fun notifyWebClientsPlay() {
             onMediaActionRequested?.invoke("play")
         }
+        fun notifyWebClientsNext() { onMediaActionRequested?.invoke("next") }
+        fun notifyWebClientsPrevious() { onMediaActionRequested?.invoke("previous") }
+        fun notifyWebClientsSeek(positionMs: Long) { onMediaActionRequested?.invoke("seek:${positionMs.coerceAtLeast(0L)}") }
 
-        fun updatePlayback(context: Context, isPlaying: Boolean, title: String?, artist: String?, artwork: String? = null) {
+        fun updatePlayback(context: Context, isPlaying: Boolean, title: String?, artist: String?,
+                           artwork: String? = null, positionMs: Long = 0L, durationMs: Long = 0L,
+                           hasPrevious: Boolean = false, hasNext: Boolean = false) {
             if (LeskovNativeAudioService.isActive()) return
             // Idempotent state deduplication: do not churn if state didn't change
-            if (lastReportedState == isPlaying && lastReportedTitle == title && lastReportedArtist == artist && lastReportedArtwork == artwork) {
-                return
-            }
+            val metadataSame = lastReportedState == isPlaying && lastReportedTitle == title &&
+                lastReportedArtist == artist && lastReportedArtwork == artwork
+            val progressChanged = durationMs != lastReportedDuration ||
+                kotlin.math.abs(positionMs - lastReportedPosition) >= 2000L ||
+                hasPrevious != lastReportedCanPrevious || hasNext != lastReportedCanNext
+            if (metadataSame && !progressChanged) return
             val previousState = lastReportedState
             lastReportedState = isPlaying
             lastReportedTitle = title
             lastReportedArtist = artist
             lastReportedArtwork = artwork
+            lastReportedPosition = positionMs
+            lastReportedDuration = durationMs
+            lastReportedCanPrevious = hasPrevious
+            lastReportedCanNext = hasNext
 
             // Do not launch a background Service for an idle page or a redundant pause.
             // A pause is only meaningful if an already-running media notification existed.
@@ -413,12 +488,16 @@ class LeskovMediaService : Service() {
 
             try {
                 val intent = Intent(context, LeskovMediaService::class.java).apply {
-                    action = if (isPlaying) ACTION_PLAY else ACTION_PAUSE
+                    action = if (isPlaying && metadataSame) ACTION_PROGRESS else if (isPlaying) ACTION_PLAY else ACTION_PAUSE
                     putExtra(EXTRA_TITLE, title ?: "LESKOV")
                     putExtra(EXTRA_ARTIST, artist ?: "Igor Leskov")
                     putExtra(EXTRA_ARTWORK, artwork.orEmpty())
+                    putExtra(EXTRA_POSITION, positionMs)
+                    putExtra(EXTRA_DURATION, durationMs)
+                    putExtra(EXTRA_CAN_PREVIOUS, hasPrevious)
+                    putExtra(EXTRA_CAN_NEXT, hasNext)
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPlaying) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPlaying && !metadataSame) {
                     context.startForegroundService(intent)
                 } else {
                     context.startService(intent)
@@ -433,6 +512,10 @@ class LeskovMediaService : Service() {
             lastReportedTitle = null
             lastReportedArtist = null
             lastReportedArtwork = null
+            lastReportedPosition = -1L
+            lastReportedDuration = -1L
+            lastReportedCanPrevious = false
+            lastReportedCanNext = false
             try {
                 context.startService(Intent(context, LeskovMediaService::class.java).apply {
                     action = ACTION_HANDOFF_SILENT
@@ -445,6 +528,10 @@ class LeskovMediaService : Service() {
             lastReportedTitle = null
             lastReportedArtist = null
             lastReportedArtwork = null
+            lastReportedPosition = -1L
+            lastReportedDuration = -1L
+            lastReportedCanPrevious = false
+            lastReportedCanNext = false
             try {
                 val intent = Intent(context, LeskovMediaService::class.java).apply {
                     action = ACTION_USER_STOP
