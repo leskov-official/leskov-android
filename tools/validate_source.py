@@ -24,6 +24,7 @@ else:
   check('Real Firebase configuration matches LESKOV applicationId',
         'com.aistudio.leskov.musix' in package_names and
         project_number not in ('', '100000000000') and
+        firebase.get('project_info',{}).get('project_id') == 'leskov-b3863' and
         bool(keys) and all('Fake' not in k for k in keys))
  except Exception as e:
   check('Firebase config JSON parse: '+str(type(e).__name__),False)

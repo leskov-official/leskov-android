@@ -24,6 +24,7 @@ object FcmTokenManager {
     private const val PREFS_NAME = "leskov_fcm_prefs"
     private const val KEY_FCM_TOKEN = "fcm_token"
     private const val KEY_LAST_SYNCED_USER = "last_synced_user_id"
+    private const val KEY_LAST_SYNCED_AT = "last_synced_at"
     private val callbacks = ConcurrentHashMap<String, (String) -> Unit>()
 
     /** WebView evaluateJavascript does NOT await JavaScript Promises. This bridge does. */
@@ -165,9 +166,11 @@ object FcmTokenManager {
             saveToken(context, token)
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val marker = "$userId:${token.hashCode()}"
-            if (marker == prefs.getString(KEY_LAST_SYNCED_USER, null)) return@addOnSuccessListener
+            if (marker == prefs.getString(KEY_LAST_SYNCED_USER, null) &&
+                System.currentTimeMillis() - prefs.getLong(KEY_LAST_SYNCED_AT, 0L) < 86_400_000L) return@addOnSuccessListener
             firstPartyRequest(webView, "register", token, language) { status ->
-                if (status == "status:200") prefs.edit().putString(KEY_LAST_SYNCED_USER, marker).apply()
+                if (status == "status:200") prefs.edit().putString(KEY_LAST_SYNCED_USER, marker)
+                    .putLong(KEY_LAST_SYNCED_AT, System.currentTimeMillis()).apply()
                 else Log.w(TAG, "FCM server sync unavailable: $status (backend-patch must be deployed)")
             }
         }.addOnFailureListener { Log.w(TAG, "Unable to refresh FCM token", it) }

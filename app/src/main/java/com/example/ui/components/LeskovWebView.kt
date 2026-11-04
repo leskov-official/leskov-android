@@ -547,6 +547,8 @@ private fun applyMobileAppAdaptations(webView: WebView, viewModel: LeskovViewMod
 
                 // Scoped Feed adjustments
                 if (path.indexOf('feed.php') !== -1) {
+                    css += '.global-feed-page .profile-sidebar { display: none !important; } ';
+                    css += '.global-feed-page .profile-layout { display: block !important; } ';
                     css += '#feed, .feed-container { width: 100% !important; max-width: 100% !important; margin: 0 auto !important; } ';
                 }
 

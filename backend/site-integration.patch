@@ -1,0 +1,242 @@
+--- a/discover.php
++++ b/discover.php
+@@ -46,7 +46,9 @@
+ <?=cms_a11y_assets()?>
+ <?=cms_perf_assets()?>
+ </head>
+-<body class="app-shell utility-page discover-page" data-lang="<?= cms_e($lang) ?>" data-csrf="<?= cms_e($csrf) ?>" data-current-user-id="<?= (int)($viewerId ?? 0) ?>">
++<body <?php if (app_current_user()): ?>data-call-global-poll="1" data-ice-endpoint="/ice_servers.php"<?php endif; ?> class="app-shell utility-page discover-page" data-lang="<?= cms_e($lang) ?>" data-csrf="<?= cms_e($csrf) ?>" data-current-user-id="<?= (int)($viewerId ?? 0) ?>">
++<?php require_once __DIR__ . '/includes/homepage_renderer.php'; ?>
++<?= app_homepage_call_modals(app_current_user()) ?>
+ <?=app_skip_link_html('content', $lang)?>
+ <?=app_a11y_status_live_html($lang)?>
+ <header class="site-header">
+@@ -84,7 +86,7 @@
+ <?=app_pwa_offline_toast_html($lang)?>
+ <?php require_once __DIR__ . '/includes/homepage_renderer.php'; $__pu = $user ?? ($current ?? null); if($__pu && app_is_premium($__pu) && app_premium_mini_player_enabled()): ?><button type="button" data-header-player-toggle hidden aria-hidden="true"></button><?= app_homepage_playlist_panel($lang, $__pu) ?><button class="profile-player-fab" type="button" data-open-floating-player data-player-closed-label="Premium ▶ Плеер" data-player-open-label="× Закрыть" aria-label="Открыть Premium плеер">Premium ▶ Плеер</button><?php endif; ?>
+ <script src="<?= cms_e(app_asset_url('scripts/search-extras.js')) ?>"></script>
+-<?php if($__pu && app_is_premium($__pu) && app_premium_mini_player_enabled()): ?><script src="<?= cms_e(app_asset_url('scripts/site.js')) ?>"></script><?php endif; ?>
++<script src="<?= cms_e(app_asset_url('scripts/site.js')) ?>" defer></script>
+ <?= app_guest_guard_script_html($user ?? ($current ?? null)) ?>
+ </body>
+ </html>
+--- a/feed.php
++++ b/feed.php
+@@ -320,6 +320,7 @@
+     return $html;
+ }
+ 
++$nativeFeed = str_contains((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 'LESKOV-Android/');
+ $initialHtml = '';
+ foreach ($feed['rows'] as $post) {
+     $initialHtml .= render_global_feed_post($post, $current, $lang, $csrf);
+@@ -350,8 +351,11 @@
+ <?=cms_pwa_assets()?>
+ <?=cms_a11y_assets()?>
+ <?=cms_perf_assets()?>
++<?php if ($nativeFeed): ?><style>.global-feed-page .profile-layout{display:block;width:100%;max-width:100%}.global-feed-page .profile-main{width:100%;max-width:100%;margin:0}</style><?php endif; ?>
+ </head>
+-<body class="app-shell global-feed-page" data-current-user-id="<?= (int)($current['id'] ?? 0) ?>" data-csrf="<?=cms_e($csrf)?>" data-softnav-layout="site" data-softnav-disabled="1"<?php if($noticeCounts): ?> data-notice-poll-url="notifications.php?ajax=poll" data-notice-total="<?= (int)($noticeCounts['total'] ?? 0) ?>"<?php endif; ?>>
++<body <?php if (app_current_user()): ?>data-call-global-poll="1" data-ice-endpoint="/ice_servers.php"<?php endif; ?> class="app-shell global-feed-page" data-current-user-id="<?= (int)($current['id'] ?? 0) ?>" data-csrf="<?=cms_e($csrf)?>" data-softnav-layout="site" data-softnav-disabled="1"<?php if($noticeCounts): ?> data-notice-poll-url="notifications.php?ajax=poll" data-notice-total="<?= (int)($noticeCounts['total'] ?? 0) ?>"<?php endif; ?>>
++<?php require_once __DIR__ . '/includes/homepage_renderer.php'; ?>
++<?= app_homepage_call_modals(app_current_user()) ?>
+ <?=app_perf_start()?>
+ <?=app_skip_link_html('content', $lang)?>
+ <?=app_a11y_status_live_html($lang)?>
+@@ -367,7 +371,7 @@
+   $sidebarNoticeCounts = $noticeCounts ?? null;
+   $sidebarVerification = false;
+   $sidebarOwn = (bool)$current;
+-  require __DIR__ . '/includes/profile_sidebar.php';
++  if (!$nativeFeed) require __DIR__ . '/includes/profile_sidebar.php';
+   ?>
+   <main class="profile-main" id="feed">
+     <?= app_guest_banner_html($lang, $current, 'browse') ?>
+--- a/gifts.php
++++ b/gifts.php
+@@ -50,7 +50,9 @@
+   <link rel="stylesheet" href="<?= cms_e(app_asset_url('styles/homepage.css')) ?>">
+   <?=cms_player_assets()?>
+ </head>
+-<body class="app-shell gifts-page" data-current-user-id="<?= (int)($current['id'] ?? 0) ?>" data-csrf="<?=cms_e(cms_csrf_token())?>" data-softnav-layout="site" data-softnav-disabled="1"<?php if($noticeCounts): ?> data-notice-poll-url="notifications.php?ajax=poll" data-notice-total="<?= (int)($noticeCounts['total'] ?? 0) ?>"<?php endif; ?>>
++<body <?php if (app_current_user()): ?>data-call-global-poll="1" data-ice-endpoint="/ice_servers.php"<?php endif; ?> class="app-shell gifts-page" data-current-user-id="<?= (int)($current['id'] ?? 0) ?>" data-csrf="<?=cms_e(cms_csrf_token())?>" data-softnav-layout="site" data-softnav-disabled="1"<?php if($noticeCounts): ?> data-notice-poll-url="notifications.php?ajax=poll" data-notice-total="<?= (int)($noticeCounts['total'] ?? 0) ?>"<?php endif; ?>>
++<?php require_once __DIR__ . '/includes/homepage_renderer.php'; ?>
++<?= app_homepage_call_modals(app_current_user()) ?>
+ <div class="profile-layout profile-layout-extended">
+   <?php
+   $sidebarUser = $profile;
+--- a/includes/app.php
++++ b/includes/app.php
+@@ -4647,6 +4647,7 @@
+     db_exec('INSERT INTO calls (caller_id, callee_id, kind, status, caller_offer, created_at, updated_at) VALUES (?, ?, ?, "ringing", ?, NOW(), NOW())', [$callerId, $calleeId, $kind, $offer]);
+     $id = (int)db()->lastInsertId();
+     rt_publish($calleeId, 'call');
++    app_mobile_push_call($calleeId, $id, 'profile');
+     return $id;
+ }
+ 
+@@ -4684,6 +4685,7 @@
+     if ((int)$row['callee_id'] !== $userId) throw new RuntimeException('Только адресат может принять звонок.');
+     if (!in_array((string)$row['status'], ['ringing'], true)) throw new RuntimeException('Звонок уже завершён.');
+     db_exec('UPDATE calls SET status = "active", callee_answer = ?, accepted_at = NOW(), started_at = COALESCE(started_at, NOW()), updated_at = NOW() WHERE id = ?', [$answer, $callId]);
++    app_mobile_push_call((int)$row['callee_id'], $callId, 'profile', true);
+     return app_call_for_user($callId, $userId) ?: [];
+ }
+ 
+@@ -4693,6 +4695,7 @@
+     if ((int)$row['callee_id'] !== $userId) throw new RuntimeException('Только адресат может отклонить звонок.');
+     if (!in_array((string)$row['status'], ['ringing'], true)) throw new RuntimeException('Звонок уже завершён.');
+     db_exec('UPDATE calls SET status = "ended", end_reason = "declined", ended_at = NOW(), updated_at = NOW() WHERE id = ?', [$callId]);
++    app_mobile_push_call((int)$row['callee_id'], $callId, 'profile', true);
+      
+     try {
+         db_exec('INSERT INTO call_signals (call_id, sender_id, kind, payload, created_at) VALUES (?, ?, "bye", ?, NOW())', [$callId, $userId, json_encode(['reason' => 'declined'])]);
+@@ -4705,6 +4708,7 @@
+     if (in_array((string)$row['status'], ['ended', 'declined', 'missed'], true)) return;
+     $safeReason = in_array($reason, ['hangup', 'busy', 'error', 'timeout'], true) ? $reason : 'hangup';
+     db_exec('UPDATE calls SET status = "ended", end_reason = ?, ended_at = NOW(), updated_at = NOW() WHERE id = ?', [$safeReason, $callId]);
++    app_mobile_push_call((int)$row['callee_id'], $callId, 'profile', true);
+      
+     try {
+         db_exec('INSERT INTO call_signals (call_id, sender_id, kind, payload, created_at) VALUES (?, ?, "bye", ?, NOW())', [$callId, $userId, json_encode(['reason' => $safeReason])]);
+@@ -4855,6 +4859,7 @@
+ }
+ 
+ require_once __DIR__ . '/notifications.php';
++require_once __DIR__ . '/mobile_push.php';
+ 
+ require_once __DIR__ . '/admin_ops.php';
+ 
+--- a/includes/homepage_renderer.php
++++ b/includes/homepage_renderer.php
+@@ -1399,6 +1399,7 @@
+ 
+ function app_homepage_call_modals(?array $currentUser): string {
+     if (!$currentUser) return '';
++    $lang = app_user_site_lang($currentUser);
+     return '<div class="call-overlay" id="callOverlay" role="dialog" aria-modal="true" aria-labelledby="callOverlayState" hidden><div class="call-overlay__backdrop"></div><div class="call-overlay__card surface-card"><div class="call-overlay__state" id="callOverlayState">' . cms_e(app_t('call_connecting', $lang ?? 'ru')) . '</div><div class="call-overlay__peer"><img id="callPeerAvatar" src="' . cms_e(app_default_avatar()) . '" alt=""><div><strong id="callPeerName">' . cms_e(app_t('user_not_found', $lang ?? 'ru')) . '</strong><p class="small" id="callDurationLabel">00:00</p></div></div><div class="call-video-grid"><video id="remoteCallVideo" playsinline autoplay></video><div class="call-self is-expanded" id="callSelfView" data-facing="user"><video id="localCallVideo" playsinline autoplay muted></video><span class="call-self__off">' . cms_e(($lang ?? 'ru') === 'et' ? 'Kaamera väljas' : 'Камера выключена') . '</span><div class="call-self__bar"><span class="call-self__mode" id="callSelfMode">' . cms_e(($lang ?? 'ru') === 'et' ? 'Eesmine kaamera' : 'Фронтальная') . '</span><button type="button" class="call-self__toggle" id="callSelfToggle" aria-label="' . cms_e(($lang ?? 'ru') === 'et' ? 'Ahenda või laienda oma kaamera' : 'Свернуть или развернуть свою камеру') . '"></button></div></div></div><div class="call-controls"><button class="site-btn secondary media-action-btn" type="button" id="toggleMicBtn" aria-label="' . cms_e(app_t('call_mute', $lang ?? 'ru')) . '">' . cms_e(app_t('call_mute', $lang ?? 'ru')) . '</button><button class="site-btn secondary media-action-btn" type="button" id="toggleCameraBtn" aria-label="' . cms_e(app_t('call_camera_off', $lang ?? 'ru')) . '">' . cms_e(app_t('call_camera_off', $lang ?? 'ru')) . '</button><button class="site-btn secondary media-action-btn" type="button" id="switchCameraBtn" aria-label="' . cms_e(app_t('call_flip', $lang ?? 'ru')) . '">' . cms_e(app_t('call_flip', $lang ?? 'ru')) . '</button><button class="site-btn danger media-action-btn" type="button" id="endCallBtn" aria-label="' . cms_e(app_t('call_end', $lang ?? 'ru')) . '">' . cms_e(app_t('call_end', $lang ?? 'ru')) . '</button></div></div></div><div class="incoming-call-modal auth-modal" id="incomingCallModal" role="dialog" aria-modal="true" aria-labelledby="incomingCallTitle" hidden><div class="auth-modal__backdrop"></div><div class="auth-modal__dialog surface-card incoming-call-modal__dialog"><div class="incoming-call-modal__avatar"><img id="incomingCallAvatar" src="' . cms_e(app_default_avatar()) . '" alt=""></div><h2 id="incomingCallTitle">' . cms_e(app_t('call_incoming_title', $lang ?? 'ru')) . '</h2><p id="incomingCallText">' . cms_e(app_t('call_connecting', $lang ?? 'ru')) . '</p><div class="incoming-call-modal__actions"><button class="site-btn primary" type="button" id="acceptIncomingCallBtn">' . cms_e(app_t('call_accept', $lang ?? 'ru')) . '</button><button class="site-btn secondary" type="button" id="declineIncomingCallBtn">' . cms_e(app_t('call_decline', $lang ?? 'ru')) . '</button></div></div></div><audio id="callRingtoneAudio" src="' . cms_e(app_asset_url('uploads/call_ringtone.wav')) . '" preload="none" loop playsinline></audio>';
+ }
+ 
+--- a/includes/notifications.php
++++ b/includes/notifications.php
+@@ -556,7 +556,7 @@
+ 
+ function app_notification_push_dispatch(int $userId, string $kind, string $type, ?int $entityId): void {
+     if (!app_notification_pref_allowed($userId, $kind, 'push')) return;
+-    if (!app_push_subscriptions_for_user($userId)) return;
++
+     $lang = 'ru';
+     try { $u = app_user_by_id($userId); if ($u) $lang = app_user_site_lang($u); } catch (Throwable $e) {}
+     $title = app_push_notification_title($type,$lang);
+@@ -571,7 +571,10 @@
+     $body = isset($specific[$type]) ? $specific[$type][$lang] ?? $specific[$type]['ru'] : (function_exists('app_site_notification_label') ? app_site_notification_label($type, $lang) : $type);
+     $url = function_exists('app_site_notification_center_url') ? app_site_notification_center_url($userId, $type, $entityId) : '/notifications.php';
+     if(in_array($type,['group_post','friend_birthday'],true)){ $d=app_community_notice_details($userId,$type,(int)$entityId,$lang);if(!$d)return;$body=$d['text'];$url=$d['url']; }
+-    app_send_web_push($userId, $title, $body, $url, ['tag' => $type, 'lang' => $lang]);
++    $mobileType = match ($kind) { 'message' => 'message', 'group_post' => 'post', 'site', 'premium_changed', 'premium_expiring' => 'system', default => 'social' };
++    app_mobile_push_send($userId, ['type'=>$mobileType,'title'=>$title,'body'=>$body,
++        'target_url'=>'https://lesv.online/' . ltrim($url, '/'), 'collapse_id'=>$type.'_'.(string)$entityId]);
++    if (app_push_subscriptions_for_user($userId)) app_send_web_push($userId, $title, $body, $url, ['tag' => $type, 'lang' => $lang]);
+ }
+ 
+ function app_notifications_live_state(int $userId): array {
+--- a/includes/realtime_calls.php
++++ b/includes/realtime_calls.php
+@@ -88,6 +88,7 @@
+     db_exec('INSERT INTO message_call_sessions (caller_id, callee_id, status, call_type, created_at, updated_at) VALUES (?, ?, "ringing", ?, NOW(), NOW())', [$callerId, $calleeId, $callType]);
+     $id = (int)db()->lastInsertId();
+     rt_publish($calleeId, 'call');
++    app_mobile_push_call($calleeId, $id, 'messages');
+     return (array)db_row('SELECT * FROM message_call_sessions WHERE id = ? LIMIT 1', [$id]);
+ }
+ function app_message_call_update_status(int $sessionId, string $status, ?string $reason = null): ?array {
+@@ -118,6 +119,7 @@
+     db_exec('UPDATE message_call_sessions SET ' . implode(', ', $sets) . ' WHERE id = ?', $params);
+     rt_publish((int)$session['caller_id'], 'call');
+     rt_publish((int)$session['callee_id'], 'call');
++    if ($status !== 'ringing') app_mobile_push_call((int)$session['callee_id'], $sessionId, 'messages', true);
+     $updated = db_row('SELECT * FROM message_call_sessions WHERE id = ? LIMIT 1', [$sessionId]);
+     if ($updated && app_message_call_is_terminal($status)) {
+         app_message_call_log($sessionId, $status);
+--- a/notifications.php
++++ b/notifications.php
+@@ -102,6 +102,8 @@
+ <?=cms_perf_assets()?>
+ </head>
+ <body class="app-shell utility-page notifications-page-shell" data-user-premium-active="<?= $premiumPlayerEnabled ? '1' : '0' ?>" data-softnav-layout="site" data-softnav-disabled="1" data-call-global-poll="1" data-lang="<?= cms_e($lang) ?>" data-csrf="<?= cms_e($csrf) ?>" data-current-user-id="<?= (int)$user['id'] ?>" data-ice-endpoint="/ice_servers.php" data-notice-poll-url="notifications.php?ajax=poll" data-notice-total="<?= $unreadTotal ?>">
++<?php require_once __DIR__ . '/includes/homepage_renderer.php'; ?>
++<?= app_homepage_call_modals(app_current_user()) ?>
+ <?=app_skip_link_html('content', $lang)?>
+ <?=app_a11y_status_live_html($lang)?>
+ <header class="site-header">
+--- a/saved.php
++++ b/saved.php
+@@ -128,7 +128,9 @@
+ <?=cms_a11y_assets()?>
+ <?=cms_perf_assets()?>
+ </head>
+-<body class="app-shell" data-softnav-layout="site" data-softnav-disabled="1" data-current-user-id="<?= (int)$user['id'] ?>" data-notice-poll-url="notifications.php?ajax=poll" data-notice-total="<?= (int)($noticeCounts['total'] ?? 0) ?>" data-csrf="<?= cms_e($csrf) ?>">
++<body <?php if (app_current_user()): ?>data-call-global-poll="1" data-ice-endpoint="/ice_servers.php"<?php endif; ?> class="app-shell" data-softnav-layout="site" data-softnav-disabled="1" data-current-user-id="<?= (int)$user['id'] ?>" data-notice-poll-url="notifications.php?ajax=poll" data-notice-total="<?= (int)($noticeCounts['total'] ?? 0) ?>" data-csrf="<?= cms_e($csrf) ?>">
++<?php require_once __DIR__ . '/includes/homepage_renderer.php'; ?>
++<?= app_homepage_call_modals(app_current_user()) ?>
+ <?=app_skip_link_html('content', $lang)?>
+ <?=app_a11y_status_live_html($lang)?>
+ <div class="profile-layout profile-layout-extended profile-layout-single saved-layout">
+--- a/search.php
++++ b/search.php
+@@ -62,7 +62,9 @@
+ <?=cms_a11y_assets()?>
+ <?=cms_perf_assets()?>
+ </head>
+-<body class="app-shell utility-page search-page" data-lang="<?= cms_e($lang) ?>" data-csrf="<?= cms_e($csrf) ?>" data-current-user-id="<?= (int)($viewerId ?? 0) ?>">
++<body <?php if (app_current_user()): ?>data-call-global-poll="1" data-ice-endpoint="/ice_servers.php"<?php endif; ?> class="app-shell utility-page search-page" data-lang="<?= cms_e($lang) ?>" data-csrf="<?= cms_e($csrf) ?>" data-current-user-id="<?= (int)($viewerId ?? 0) ?>">
++<?php require_once __DIR__ . '/includes/homepage_renderer.php'; ?>
++<?= app_homepage_call_modals(app_current_user()) ?>
+ <?=app_skip_link_html('content', $lang)?>
+ <?=app_a11y_status_live_html($lang)?>
+ <header class="site-header">
+@@ -100,7 +102,7 @@
+ <?=app_pwa_offline_toast_html($lang)?>
+ <?php require_once __DIR__ . '/includes/homepage_renderer.php'; $__pu = $user ?? null; if($__pu && app_is_premium($__pu) && app_premium_mini_player_enabled()): ?><button type="button" data-header-player-toggle hidden aria-hidden="true"></button><?= app_homepage_playlist_panel($lang, $__pu) ?><button class="profile-player-fab" type="button" data-open-floating-player data-player-closed-label="Premium ▶ Плеер" data-player-open-label="× Закрыть" aria-label="Открыть Premium плеер">Premium ▶ Плеер</button><?php endif; ?>
+ <script src="<?= cms_e(app_asset_url('scripts/search-extras.js')) ?>"></script>
+-<?php if($__pu && app_is_premium($__pu) && app_premium_mini_player_enabled()): ?><script src="<?= cms_e(app_asset_url('scripts/site.js')) ?>"></script><?php endif; ?>
++<script src="<?= cms_e(app_asset_url('scripts/site.js')) ?>" defer></script>
+ <?= app_guest_guard_script_html($user) ?>
+ </body>
+ </html>
+--- a/secret.php
++++ b/secret.php
+@@ -193,8 +193,11 @@
+ <link rel="stylesheet" href="<?= cms_e(app_asset_url('styles/secret-chat.css')) ?>">
+ <?=cms_design_assets()?>
+ <?=cms_a11y_assets()?>
++<link rel="stylesheet" href="<?= cms_e(app_asset_url('styles/homepage.css')) ?>">
+ </head>
+-<body class="app-shell secret-page" data-softnav-disabled="1" data-current-user-id="<?= $me ?>" data-notice-poll-url="notifications.php?ajax=poll" data-notice-total="<?= (int)($noticeCounts['total'] ?? 0) ?>" data-csrf="<?= cms_e($csrf) ?>">
++<body <?php if (app_current_user()): ?>data-call-global-poll="1" data-ice-endpoint="/ice_servers.php"<?php endif; ?> class="app-shell secret-page" data-softnav-disabled="1" data-current-user-id="<?= $me ?>" data-notice-poll-url="notifications.php?ajax=poll" data-notice-total="<?= (int)($noticeCounts['total'] ?? 0) ?>" data-csrf="<?= cms_e($csrf) ?>">
++<?php require_once __DIR__ . '/includes/homepage_renderer.php'; ?>
++<?= app_homepage_call_modals(app_current_user()) ?>
+ <?=app_skip_link_html('content', $lang)?>
+ <div class="profile-layout profile-layout-single secret-layout">
+ <main class="profile-main" id="content">
+@@ -321,5 +324,6 @@
+ <?=app_toast_host_html()?>
+ <script src="<?= cms_e(app_asset_url('scripts/secret-chat.js')) ?>"></script>
+ <script src="<?= cms_e(app_asset_url('scripts/secret-chat-ui.js')) ?>" defer></script>
+-<script src="scripts/msg-live.js?v=20261009g" defer></script></body>
++<script src="scripts/msg-live.js?v=20261009g" defer></script><script src="<?= cms_e(app_asset_url('scripts/site.js')) ?>" defer></script>
++</body>
+ </html>
+--- a/user.php
++++ b/user.php
+@@ -339,7 +339,9 @@
+   <script src="<?=cms_e(app_asset_url('scripts/profile-avatar.js'))?>"></script>
+ <link rel="preload" as="image" href="<?=cms_e(app_profile_cover_url((string)($profile['cover']??'')))?>" fetchpriority="high">
+ </head>
+-<body class="app-shell public-user-page" data-user-premium-active="<?= $viewerIsPremium ? '1' : '0' ?>" data-current-user-id="<?= (int)($current['id'] ?? 0) ?>" data-csrf="<?=cms_e(cms_csrf_token())?>" data-r17-endpoint="<?=cms_e(app_profile_link($profile))?>" data-softnav-layout="site" data-softnav-disabled="1"<?php if($currentNoticeCounts): ?> data-notice-poll-url="notifications.php?ajax=poll" data-notice-total="<?= (int)($currentNoticeCounts['total'] ?? 0) ?>"<?php endif; ?>>
++<body <?php if (app_current_user()): ?>data-call-global-poll="1" data-ice-endpoint="/ice_servers.php"<?php endif; ?> class="app-shell public-user-page" data-user-premium-active="<?= $viewerIsPremium ? '1' : '0' ?>" data-current-user-id="<?= (int)($current['id'] ?? 0) ?>" data-csrf="<?=cms_e(cms_csrf_token())?>" data-r17-endpoint="<?=cms_e(app_profile_link($profile))?>" data-softnav-layout="site" data-softnav-disabled="1"<?php if($currentNoticeCounts): ?> data-notice-poll-url="notifications.php?ajax=poll" data-notice-total="<?= (int)($currentNoticeCounts['total'] ?? 0) ?>"<?php endif; ?>>
++<?php require_once __DIR__ . '/includes/homepage_renderer.php'; ?>
++<?= app_homepage_call_modals(app_current_user()) ?>
+ <div class="profile-layout profile-public-layout profile-layout-extended">
+     <aside class="profile-sidebar surface-card sticky-col">
+         <?php if($current): ?><a href="profile.php" class="back-link">← <?= app_account_phrase('Перейти в мой профиль',$current,$lang,'Minu profiilile') ?></a><?php else: ?><a href="search.php<?= $lang === 'et' ? '?lang=et' : '' ?>" class="back-link" data-back-search>← <?= $lang === 'et' ? 'Otsingusse' : 'К поиску' ?></a><?php endif; ?>

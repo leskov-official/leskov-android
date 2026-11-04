@@ -33,6 +33,24 @@ class LeskovFirebaseMessagingService : FirebaseMessagingService() {
 
         val data = remoteMessage.data
         val notification = remoteMessage.notification
+        val collapseId = data["collapse_id"]
+        val callPrefs = getSharedPreferences("leskov_call_cancellations", Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        callPrefs.all.filterValues { it is Long && it < now }.keys.forEach {
+            callPrefs.edit().remove(it).apply()
+        }
+        if (data["type"] == "call_cancelled") {
+            collapseId?.let {
+                callPrefs.edit().putLong(it, now + 300_000L).apply()
+                (getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager)?.cancel(it.hashCode())
+            }
+            return
+        }
+        if (collapseId != null && callPrefs.getLong(collapseId, 0L) > now) return
+        val expiresAt = data["expires_at"]?.toLongOrNull()
+        if (data["type"] in listOf("call", "incoming_call") &&
+            expiresAt != null && expiresAt <= System.currentTimeMillis() / 1000L) return
+
 
         val type = data["type"] ?: "system"
         val title = data["title"] ?: notification?.title ?: "LESKOV"
