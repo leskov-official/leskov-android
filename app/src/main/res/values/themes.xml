@@ -10,7 +10,6 @@
         <item name="android:statusBarColor">@color/leskov_background</item>
         <item name="android:navigationBarColor">@color/leskov_background</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
     </style>
 
     <!-- Splash Screen Theme (Pure White #FFFFFF with original centered logo scaled safely) -->
