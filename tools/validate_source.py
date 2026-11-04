@@ -31,6 +31,9 @@ s=(root/'app/build.gradle.kts').read_text()
 check('Google services plugin applied only conditionally', 'if (firebaseConfig.exists())' in s and 'apply(plugin = "com.google.gms.google-services")' in s)
 check('Standard debug keystore is used', 'signingConfigs.getByName("debugConfig")' not in s)
 check('Target SDK 36 remains', 'targetSdk = 36' in s)
+check('Generated R and BuildConfig namespace matches Kotlin sources',
+      'namespace = "com.example"' in s and
+      'applicationId = "com.aistudio.leskov.musix"' in s)
 media=(root/'app/src/main/java/com/example/media/LeskovMediaService.kt').read_text()
 check('Unresolved audioManager assignment removed', 'audioManager = getSystemService' not in media)
 check('Media notification uses LESKOV monochrome icon', '.setSmallIcon(R.drawable.ic_notification_leskov)' in media)

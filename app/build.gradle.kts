@@ -19,7 +19,7 @@ if (firebaseConfig.exists()) {
 
 
 android {
-  namespace = "com.aistudio.leskov.musix"
+  namespace = "com.example"
   compileSdk = 36
 
   defaultConfig {
