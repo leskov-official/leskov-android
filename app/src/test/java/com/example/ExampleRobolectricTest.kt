@@ -42,10 +42,10 @@ class ExampleRobolectricTest {
     assertFalse(viewModel.uiState.value.isLoggedIn)
     assertFalse(viewModel.uiState.value.showAuthGate)
 
-    // Tab 0: Home is public -> returns URL with index.php
+    // Tab 0: current Home tab should NOT reload its PHP document or interrupt audio.
     val homeUrl = viewModel.onTabSelected(0)
-    assertNotNull(homeUrl)
-    assertTrue(homeUrl!!.contains("index.php"))
+    assertNull(homeUrl)
+    assertEquals(0, viewModel.uiState.value.selectedTabIndex)
     assertFalse(viewModel.uiState.value.showAuthGate)
 
     // Tab 2: Search is public -> returns URL with discover.php and DOES NOT bounce to home!

@@ -10,14 +10,23 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.Handler
+import android.os.Looper
+import android.net.Uri
+import java.net.URL
+import java.io.ByteArrayOutputStream
+import javax.net.ssl.HttpsURLConnection
 import android.media.AudioManager
+import android.media.MediaMetadata
+import android.media.session.MediaSession
+import android.media.session.PlaybackState
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
-import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.R
 
@@ -29,6 +38,9 @@ class LeskovMediaService : Service() {
     private var isPlaying = false
     private var currentTitle: String = "LESKOV"
     private var currentArtist: String = "Igor Leskov"
+    private var artworkUrl: String = ""
+    private var artworkBitmap: Bitmap? = null
+    private var mediaSession: MediaSession? = null
 
     private var isReceiverRegistered = false
     private val noisyReceiver = object : BroadcastReceiver() {
@@ -65,6 +77,17 @@ class LeskovMediaService : Service() {
         }
 
         createNotificationChannel()
+        // Framework media session supplies track information, artwork and controls
+        // to Android's notification shade and the device lock screen (API 26+).
+        mediaSession = MediaSession(this, "LESKOV-WebAudio").apply {
+            setCallback(object : MediaSession.Callback() {
+                override fun onPlay() { notifyWebClientsPlay() }
+                override fun onPause() { notifyWebClientsPause() }
+                override fun onStop() { notifyWebClientsPause() }
+            })
+            setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
+            isActive = true
+        }
 
         val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
         registerReceiver(noisyReceiver, filter)
@@ -77,7 +100,8 @@ class LeskovMediaService : Service() {
             ACTION_PLAY -> {
                 val title = intent.getStringExtra(EXTRA_TITLE) ?: currentTitle
                 val artist = intent.getStringExtra(EXTRA_ARTIST) ?: currentArtist
-                startPlayback(title, artist)
+                val cover = intent.getStringExtra(EXTRA_ARTWORK).orEmpty()
+                startPlayback(title, artist, cover)
             }
             ACTION_PAUSE -> {
                 // Simply update the service playback state and notification.
@@ -110,10 +134,15 @@ class LeskovMediaService : Service() {
         return START_NOT_STICKY
     }
 
-    fun startPlayback(title: String, artist: String) {
+    fun startPlayback(title: String, artist: String, cover: String) {
         currentTitle = if (title.isBlank()) "LESKOV" else title
         currentArtist = if (artist.isBlank()) "Igor Leskov" else artist
         isPlaying = true
+        if (cover != artworkUrl) {
+            artworkUrl = cover
+            artworkBitmap = null
+            loadArtworkAsync(cover)
+        }
 
         try {
             if (wakeLock?.isHeld != true) {
@@ -121,6 +150,8 @@ class LeskovMediaService : Service() {
             }
         } catch (_: Exception) {}
 
+        mediaSession?.isActive = true
+        publishMediaSessionState()
         val notification = buildNotification(isPlaying, currentTitle, currentArtist)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
@@ -141,6 +172,7 @@ class LeskovMediaService : Service() {
             }
         } catch (_: Exception) {}
 
+        publishMediaSessionState()
         val notification = buildNotification(isPlaying, currentTitle, currentArtist)
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         try { nm?.notify(NOTIFICATION_ID, notification) }
@@ -157,6 +189,8 @@ class LeskovMediaService : Service() {
 
     fun stopPlayback() {
         isPlaying = false
+        publishMediaSessionState()
+        mediaSession?.isActive = false
         try {
             if (wakeLock?.isHeld == true) {
                 wakeLock?.release()
@@ -169,6 +203,72 @@ class LeskovMediaService : Service() {
             @Suppress("DEPRECATION")
             stopForeground(true)
         }
+    }
+
+    // Only images from our own HTTPS host. Redirects, huge files and untrusted schemes are refused.
+    private fun loadArtworkAsync(raw: String) {
+        val artworkUri = try { Uri.parse(raw) } catch (_: Exception) { null } ?: return
+        if (!artworkUri.scheme.equals("https", true) ||
+            !artworkUri.host.equals("lesv.online", true) ||
+            artworkUri.userInfo != null || artworkUri.port !in listOf(-1, 443)) return
+        Thread {
+            var connection: HttpsURLConnection? = null
+            try {
+                connection = URL(raw).openConnection() as HttpsURLConnection
+                connection.instanceFollowRedirects = false
+                connection.connectTimeout = 4000
+                connection.readTimeout = 4000
+                connection.connect()
+                if (connection.responseCode != 200 ||
+                    !connection.contentType.orEmpty().startsWith("image/") ||
+                    connection.contentLengthLong > 2_000_000L) return@Thread
+                val bytes = connection.inputStream.use { input ->
+                    val output = ByteArrayOutputStream()
+                    val chunk = ByteArray(8192)
+                    while (true) {
+                        val count = input.read(chunk)
+                        if (count < 0) break
+                        if (output.size() + count > 2_000_000) return@Thread
+                        output.write(chunk, 0, count)
+                    }
+                    output.toByteArray()
+                }
+                val options = BitmapFactory.Options().apply { inSampleSize = 2 }
+                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return@Thread
+                Handler(Looper.getMainLooper()).post {
+                    if (raw == artworkUrl && isPlaying) {
+                        artworkBitmap = bitmap
+                        publishMediaSessionState()
+                        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                        try { manager?.notify(NOTIFICATION_ID,
+                            buildNotification(true, currentTitle, currentArtist)) }
+                        catch (e: SecurityException) { Log.w(TAG, "Artwork notification denied", e) }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "Track cover is unavailable; fallback icon kept", e)
+            } finally { connection?.disconnect() }
+        }.start()
+    }
+
+    private fun publishMediaSessionState() {
+        val s = mediaSession ?: return
+        val state = if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
+        val actions = PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
+            PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_STOP
+        s.setPlaybackState(PlaybackState.Builder()
+            .setActions(actions)
+            .setState(state, PlaybackState.PLAYBACK_POSITION_UNKNOWN, if (isPlaying) 1.0f else 0.0f)
+            .build())
+        val metadata = MediaMetadata.Builder()
+            .putString(MediaMetadata.METADATA_KEY_TITLE, currentTitle)
+            .putString(MediaMetadata.METADATA_KEY_ARTIST, currentArtist)
+            .putString(MediaMetadata.METADATA_KEY_ALBUM, "LESKOV")
+        val image = artworkBitmap ?: try {
+            BitmapFactory.decodeResource(resources, R.drawable.leskov_logo)
+        } catch (_: Exception) { null }
+        if (image != null) metadata.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, image)
+        s.setMetadata(metadata.build())
     }
 
     private fun createNotificationChannel() {
@@ -227,24 +327,25 @@ class LeskovMediaService : Service() {
             null
         }
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(artist)
             .setSubText("LESKOV")
-            // CRITICAL: Monochrome silhouette vector icon prevents white square artifact on Android 12+
             .setSmallIcon(R.drawable.ic_notification_leskov)
             .setContentIntent(openPendingIntent)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setCategory(Notification.CATEGORY_TRANSPORT)
             .setOngoing(playing)
+            .setShowWhen(false)
             .setColor(0xFF9B8CFB.toInt())
             .addAction(playPauseIcon, playPauseTitle, togglePendingIntent)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Закрыть", stopPendingIntent)
+            .setStyle(Notification.MediaStyle()
+                .setMediaSession(mediaSession?.sessionToken)
+                .setShowActionsInCompactView(0))
 
-        if (largeIconBitmap != null) {
-            builder.setLargeIcon(largeIconBitmap)
-        }
-
+        val image = artworkBitmap ?: largeIconBitmap
+        if (image != null) builder.setLargeIcon(image)
         return builder.build()
     }
 
@@ -256,6 +357,8 @@ class LeskovMediaService : Service() {
             isReceiverRegistered = false
         }
         stopPlayback()
+        mediaSession?.release()
+        mediaSession = null
         super.onDestroy()
     }
 
@@ -273,11 +376,13 @@ class LeskovMediaService : Service() {
 
         const val EXTRA_TITLE = "extra_title"
         const val EXTRA_ARTIST = "extra_artist"
+        const val EXTRA_ARTWORK = "extra_artwork"
 
         // State deduplication to prevent spurious intent churning
         private var lastReportedState: Boolean? = null
         private var lastReportedTitle: String? = null
         private var lastReportedArtist: String? = null
+        private var lastReportedArtwork: String? = null
 
         // Callback listeners for webview action binding
         var onMediaActionRequested: ((action: String) -> Unit)? = null
@@ -290,16 +395,17 @@ class LeskovMediaService : Service() {
             onMediaActionRequested?.invoke("play")
         }
 
-        fun updatePlayback(context: Context, isPlaying: Boolean, title: String?, artist: String?) {
+        fun updatePlayback(context: Context, isPlaying: Boolean, title: String?, artist: String?, artwork: String? = null) {
             if (LeskovNativeAudioService.isActive()) return
             // Idempotent state deduplication: do not churn if state didn't change
-            if (lastReportedState == isPlaying && lastReportedTitle == title && lastReportedArtist == artist) {
+            if (lastReportedState == isPlaying && lastReportedTitle == title && lastReportedArtist == artist && lastReportedArtwork == artwork) {
                 return
             }
             val previousState = lastReportedState
             lastReportedState = isPlaying
             lastReportedTitle = title
             lastReportedArtist = artist
+            lastReportedArtwork = artwork
 
             // Do not launch a background Service for an idle page or a redundant pause.
             // A pause is only meaningful if an already-running media notification existed.
@@ -310,6 +416,7 @@ class LeskovMediaService : Service() {
                     action = if (isPlaying) ACTION_PLAY else ACTION_PAUSE
                     putExtra(EXTRA_TITLE, title ?: "LESKOV")
                     putExtra(EXTRA_ARTIST, artist ?: "Igor Leskov")
+                    putExtra(EXTRA_ARTWORK, artwork.orEmpty())
                 }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPlaying) {
                     context.startForegroundService(intent)
@@ -325,6 +432,7 @@ class LeskovMediaService : Service() {
             lastReportedState = null
             lastReportedTitle = null
             lastReportedArtist = null
+            lastReportedArtwork = null
             try {
                 context.startService(Intent(context, LeskovMediaService::class.java).apply {
                     action = ACTION_HANDOFF_SILENT
@@ -336,6 +444,7 @@ class LeskovMediaService : Service() {
             lastReportedState = null
             lastReportedTitle = null
             lastReportedArtist = null
+            lastReportedArtwork = null
             try {
                 val intent = Intent(context, LeskovMediaService::class.java).apply {
                     action = ACTION_USER_STOP

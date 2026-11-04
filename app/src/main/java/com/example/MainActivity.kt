@@ -70,7 +70,6 @@ import com.example.model.LeskovStrings
 import com.example.model.LeskovConstants
 import com.example.ui.components.LeskovAuthGate
 import com.example.ui.components.LeskovBottomBar
-import com.example.ui.components.LeskovMiniPlayer
 import com.example.ui.components.LeskovDeleteCookiesDialog
 import com.example.ui.components.LeskovMoreBottomSheet
 import com.example.ui.components.LeskovOfflineView
@@ -345,20 +344,9 @@ fun LeskovApp(
                 enter = fadeIn(tween(140)) + slideInVertically(tween(180)) { it / 2 },
                 exit = fadeOut(tween(120)) + slideOutVertically(tween(150)) { it / 2 }
             ) {
-            androidx.compose.foundation.layout.Column {
-                AnimatedVisibility(
-                    visible = nativeAudio.active,
-                    enter = fadeIn(tween(180)) + slideInVertically(tween(230)) { it / 2 },
-                    exit = fadeOut(tween(150)) + slideOutVertically(tween(180)) { it / 2 }
-                ) {
-                    LeskovMiniPlayer(
-                        state = nativeAudio,
-                        language = uiState.language,
-                        onToggle = { LeskovNativeAudioService.toggle(context) },
-                        onClose = { LeskovNativeAudioService.stop(context) }
-                    )
-                }
-                LeskovBottomBar(
+            // Exactly one on-screen player: the website's own player. Media3 remains
+            // available for background audio and system lock-screen controls only.
+            LeskovBottomBar(
                     selectedIndex = if (uiState.showMoreSheet) 5 else uiState.selectedTabIndex,
                     language = uiState.language,
                     onTabSelected = { index ->
@@ -369,7 +357,6 @@ fun LeskovApp(
                         }
                     }
                 )
-            }
             }
         }
     ) { innerPadding ->
@@ -385,6 +372,17 @@ fun LeskovApp(
                 viewModel = viewModel,
                 onFileChooserRequested = onOpenFileChooser,
                 onPermissionRequested = onRequestMediaPermission,
+                onNativePushRequested = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        val configured = com.example.push.FcmTokenManager.isFirebaseConfigured(context)
+                        viewModel.showMessage(LeskovStrings.notificationStatus(
+                            uiState.language, if (configured) "ready" else "firebase_missing"))
+                        if (configured) com.example.push.FcmTokenManager.refreshDeviceToken(context)
+                    }
+                },
                 onWebViewCreated = onSetWebView,
                 modifier = Modifier
                     .fillMaxSize()

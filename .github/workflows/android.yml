@@ -73,6 +73,7 @@ jobs:
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest
 
       - name: Android lint
+        if: always()
         run: gradle --no-daemon --stacktrace :app:lintDebug
 
       - name: Upload test and lint reports

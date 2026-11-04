@@ -148,20 +148,20 @@ private fun LeskovNavItem(
                 imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
                 contentDescription = null,
                 tint = iconTint,
-                modifier = Modifier.size(21.dp).scale(scale)
+                modifier = Modifier.size(20.dp).scale(scale)
             )
             Spacer(Modifier.height(3.dp))
             Crossfade(targetState = label, label = "navTranslation") { currentLabel ->
                 Text(
                     text = currentLabel,
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 10.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        letterSpacing = (-0.3).sp,
+                        fontSize = 8.8.sp,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                        letterSpacing = (-0.45).sp,
                         color = content
                     ),
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Clip
                 )
             }
             Spacer(Modifier.height(3.dp))

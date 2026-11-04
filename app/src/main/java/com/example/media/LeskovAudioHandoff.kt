@@ -25,9 +25,20 @@ object LeskovAudioHandoff {
             var u=new URL(raw,document.baseURI);
             if(u.protocol!=='https:' || u.hostname!=='lesv.online' || u.port ||
                u.username || u.password || /(?:call[_-]?ringtone|notification[_-]?sound)/i.test(u.pathname)) return null;
-            return JSON.stringify({url:u.href,title:(active && active.title)||document.title||'LESKOV',
-               artist:(active && active.artist)||'Igor Leskov',
-               position:Math.max(0,Math.floor((audio.currentTime||0)*1000))});
+            var meta=(typeof navigator !== 'undefined' && navigator.mediaSession) ? navigator.mediaSession.metadata : null;
+            var title=(meta&&meta.title)||(active&&active.title)||'';
+            var artist=(meta&&meta.artist)||(active&&active.artist)||'Igor Leskov';
+            var artwork=(meta&&meta.artwork&&meta.artwork.length&&meta.artwork[meta.artwork.length-1].src)||'';
+            var tile=audio.closest && audio.closest('[data-cover], [data-track-cover], .leskov-player, .track-card');
+            if(tile){
+              title=title||tile.getAttribute('data-title')||tile.getAttribute('data-track-title')||'';
+              artwork=artwork||tile.getAttribute('data-cover')||tile.getAttribute('data-track-cover')||'';
+            }
+            try { var art=new URL(artwork,document.baseURI);
+              artwork=(art.protocol==='https:' && art.hostname==='lesv.online' && !art.username && !art.password)?art.href:'';
+            }catch(e){artwork='';}
+            return JSON.stringify({url:u.href,title:title||'LESKOV',artist:artist,
+               artwork:artwork,position:Math.max(0,Math.floor((audio.currentTime||0)*1000))});
           }catch(e){return null;}
         })();
     """.trimIndent()
@@ -58,6 +69,7 @@ object LeskovAudioHandoff {
                             url,
                             snap?.optString("title") ?: "LESKOV",
                             snap?.optString("artist") ?: "Igor Leskov",
+                            snap?.optString("artwork") ?: "",
                             snap?.optLong("position") ?: 0L
                         )
                         if (!accepted) Log.w(TAG, "Native handoff unavailable; continuing navigation")

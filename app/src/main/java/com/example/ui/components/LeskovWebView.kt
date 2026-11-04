@@ -52,6 +52,7 @@ fun LeskovWebView(
     viewModel: LeskovViewModel,
     onFileChooserRequested: (ValueCallback<Array<Uri>>, WebChromeClient.FileChooserParams) -> Boolean,
     onPermissionRequested: (PermissionRequest) -> Unit,
+    onNativePushRequested: () -> Unit,
     modifier: Modifier = Modifier,
     onWebViewCreated: (WebView) -> Unit = {}
 ) {
@@ -70,6 +71,12 @@ fun LeskovWebView(
                 javaScriptEnabled = true
                 domStorageEnabled = true
                 mediaPlaybackRequiresUserGesture = false
+                useWideViewPort = true
+                loadWithOverviewMode = true
+                textZoom = 90
+                builtInZoomControls = true
+                displayZoomControls = false
+                setSupportZoom(true)
                 javaScriptCanOpenWindowsAutomatically = false
                 setSupportMultipleWindows(false)
                 allowFileAccess = false
@@ -109,7 +116,8 @@ fun LeskovWebView(
                             // A new web track supersedes the previous native track.
                             LeskovNativeAudioService.stop(context)
                         }
-                        LeskovMediaService.updatePlayback(context, playing, title, artist)
+                        val artwork = payload.optString("artwork", "").take(1500)
+                        LeskovMediaService.updatePlayback(context, playing, title, artist, artwork)
                     } catch (e: Exception) {
                         Log.w("LeskovWebView", "Invalid audio state message", e)
                     }
@@ -124,6 +132,17 @@ fun LeskovWebView(
                 ) { _, message, origin, isMainFrame, _ ->
                     if (isMainFrame && origin.scheme == "https" && origin.host == LeskovConstants.HOST) {
                         message.data?.let { FcmTokenManager.handleResponse(it) }
+                    }
+                }
+            }
+
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+                WebViewCompat.addWebMessageListener(
+                    this, "LeskovNativePush", setOf("https://${LeskovConstants.HOST}")
+                ) { _, message, origin, isMainFrame, _ ->
+                    if (isMainFrame && origin.scheme == "https" && origin.host == LeskovConstants.HOST &&
+                        message.data == "request") {
+                        this@apply.post { onNativePushRequested() }
                     }
                 }
             }
@@ -324,9 +343,26 @@ private fun applyMobileAppAdaptations(webView: WebView, viewModel: LeskovViewMod
                         if (isAnyPlaying && activeAudio) {
                             var title = '';
                             var artist = 'Igor Leskov';
+                            var artwork = '';
                             if (navigator.mediaSession && navigator.mediaSession.metadata) {
-                                title = navigator.mediaSession.metadata.title || '';
-                                artist = navigator.mediaSession.metadata.artist || 'Igor Leskov';
+                                var metadata = navigator.mediaSession.metadata;
+                                title = metadata.title || '';
+                                artist = metadata.artist || 'Igor Leskov';
+                                if (metadata.artwork && metadata.artwork.length) {
+                                    artwork = metadata.artwork[metadata.artwork.length - 1].src || '';
+                                }
+                            }
+                            var trackNode = activeAudio.closest('[data-cover], [data-track-cover], .leskov-player, .track-card');
+                            if (trackNode) {
+                                if (!title) title = trackNode.getAttribute('data-title') || trackNode.getAttribute('data-track-title') || '';
+                                if (!artwork) artwork = trackNode.getAttribute('data-cover') || trackNode.getAttribute('data-track-cover') || '';
+                            }
+                            if (artwork) {
+                                try {
+                                    var imageUrl = new URL(artwork, document.baseURI);
+                                    artwork = imageUrl.protocol === 'https:' && imageUrl.hostname === 'lesv.online' &&
+                                        !imageUrl.username && !imageUrl.password ? imageUrl.href : '';
+                                } catch(e) { artwork = ''; }
                             }
                             if (!title) {
                                 var titleEl = document.querySelector('.player-title, [data-track-title], .track-name, .music-player-title, .song-title');
@@ -336,7 +372,7 @@ private fun applyMobileAppAdaptations(webView: WebView, viewModel: LeskovViewMod
                                 title = activeAudio.title;
                             }
                             if (!title) title = 'Музыка LESKOV';
-                            window.LeskovAudioBridge.postMessage(JSON.stringify({playing:true,title:title,artist:artist}));
+                            window.LeskovAudioBridge.postMessage(JSON.stringify({playing:true,title:title,artist:artist,artwork:artwork}));
                         } else {
                             window.LeskovAudioBridge.postMessage(JSON.stringify({playing:false,title:'',artist:''}));
                         }
@@ -346,6 +382,17 @@ private fun applyMobileAppAdaptations(webView: WebView, viewModel: LeskovViewMod
                         if (debounceTimer) clearTimeout(debounceTimer);
                         debounceTimer = setTimeout(evaluateAndNotifyState, 200);
                     };
+
+                    // The website's own player is authoritative when the user taps Play.
+                    // Release a previous native handoff before Chromium asks for audio focus.
+                    document.addEventListener('pointerdown', function(e) {
+                        var btn = e.target && e.target.closest && e.target.closest(
+                            '.leskov-player__btn--play, .leskov-player__center-btn[data-action="play"]');
+                        if (btn && window.LeskovAudioBridge) {
+                            try { window.LeskovAudioBridge.postMessage(JSON.stringify({type:'web_start'})); }
+                            catch(ignore) {}
+                        }
+                    }, true);
 
                     document.addEventListener('play', function(e) {
                         if (e.target && e.target.tagName === 'AUDIO') {
@@ -403,12 +450,25 @@ private fun applyMobileAppAdaptations(webView: WebView, viewModel: LeskovViewMod
                 var existing = document.getElementById(styleId);
                 var css = '';
 
-                // Universal 84px bottom padding prevents bottom navigation clipping on 360dp/412dp devices
+                // Full-page mobile density adjustment, including modals and site buttons.
+                // WebView viewport is already device-width; root CSS zoom retains proper touch targets.
+                css += '@media (max-width: 850px) { ';
+                css += 'html { zoom: .82 !important; } ';
+                css += 'html, body { max-width: 100% !important; min-width: 0 !important; overflow-x: clip !important; } ';
+                css += 'h1 { font-size: clamp(28px, 7vw, 38px) !important; line-height: 1.16 !important; } ';
+                css += 'h2 { font-size: clamp(22px, 5.5vw, 31px) !important; line-height: 1.2 !important; } ';
+                css += 'h3 { font-size: clamp(18px, 4.8vw, 26px) !important; } ';
+                css += 'input, select, textarea, button { max-width: 100% !important; } ';
+                css += 'input[type=file] { display: block; width: 100% !important; min-width: 0 !important; font-size: 14px !important; } ';
+                css += 'input[type=file]::file-selector-button { font-size: 14px !important; padding: 8px 10px !important; } ';
+                css += 'img, video, canvas { max-width: 100% !important; } ';
+                css += '.feed-container, .profile-container, .profile-main, .surface-card { min-width: 0 !important; max-width: 100% !important; } ';
+                css += '[role="dialog"] { max-width: min(100%, 98vw) !important; } ';
+                css += '} ';
                 css += 'body { padding-bottom: max(16px, env(safe-area-inset-bottom)) !important; } ';
 
                 // Scoped Feed adjustments
                 if (path.indexOf('feed.php') !== -1) {
-                    css += '.profile-sidebar, .profile-topbar { display: none !important; } ';
                     css += '#feed, .feed-container { width: 100% !important; max-width: 100% !important; margin: 0 auto !important; } ';
                 }
 
@@ -425,8 +485,8 @@ private fun applyMobileAppAdaptations(webView: WebView, viewModel: LeskovViewMod
                 }
 
                 // Calls overlay styling
-                css += '[data-call-incoming] { z-index: 999999 !important; } ';
-                css += '[data-call-active].is-open { z-index: 999998 !important; } ';
+                css += '[data-call-incoming]:not([hidden]) { position: fixed !important; z-index: 2147483000 !important; } ';
+                css += '[data-call-active].is-open:not([hidden]) { position: fixed !important; z-index: 2147482999 !important; } ';
 
                 if (!existing) {
                     var style = document.createElement('style');
@@ -435,6 +495,33 @@ private fun applyMobileAppAdaptations(webView: WebView, viewModel: LeskovViewMod
                     document.head.appendChild(style);
                 } else {
                     existing.textContent = css;
+                }
+
+                // The website's browser-Push API cannot work inside Android WebView.
+                // Keep the site's other notification preferences, but send its native
+                // "enable Push" button through an origin-checked Android bridge.
+                if (!window.__leskovNativePushControls) {
+                    window.__leskovNativePushControls = true;
+                    document.addEventListener('click', function(ev) {
+                        var button = ev.target && ev.target.closest && ev.target.closest('button');
+                        if (!button || !/включить\s*push|enable\s*push|lülita\s*push/i.test((button.textContent||'').trim())) return;
+                        if (window.LeskovNativePush) {
+                            ev.preventDefault(); ev.stopImmediatePropagation();
+                            window.LeskovNativePush.postMessage('request');
+                        }
+                    }, true);
+                    var notice = function() {
+                        var nodes = document.querySelectorAll('p, span, small, div');
+                        for (var i = 0; i < nodes.length; i++) {
+                            var n = nodes[i];
+                            if (n.childElementCount === 0 && /этот браузер не поддерживает push|this browser does not support push/i.test(n.textContent || '')) {
+                                n.textContent = 'В Android-приложении Push включаются через «Ещё» → «Уведомления». Для доставки требуется подключённый Firebase.';
+                            }
+                        }
+                    };
+                    notice();
+                    var observer = new MutationObserver(function(){ notice(); });
+                    observer.observe(document.body, {childList:true, subtree:true});
                 }
 
                 // If on auth.php and hash is #register, ensure registration tab is active

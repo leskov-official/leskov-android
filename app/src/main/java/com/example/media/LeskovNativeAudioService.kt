@@ -119,13 +119,16 @@ class LeskovNativeAudioService : MediaSessionService() {
                 val title = intent.getStringExtra(EXTRA_TITLE)?.take(160).orEmpty().ifBlank { "LESKOV" }
                 val artist = intent.getStringExtra(EXTRA_ARTIST)?.take(160).orEmpty().ifBlank { "Igor Leskov" }
                 val positionMs = intent.getLongExtra(EXTRA_POSITION_MS, 0L).coerceAtLeast(0L)
+                val remoteArtwork = intent.getStringExtra(EXTRA_ARTWORK)?.let { raw ->
+                    try { Uri.parse(raw) } catch (_: Exception) { null }
+                }?.takeIf { isAllowedAudioUri(it) }
                 val mediaItem = MediaItem.Builder()
                     .setUri(uri)
                     .setMediaMetadata(
                         MediaMetadata.Builder()
                             .setTitle(title)
                             .setArtist(artist)
-                            .setArtworkUri(Uri.parse("android.resource://$packageName/${R.drawable.leskov_logo}"))
+                            .setArtworkUri(remoteArtwork ?: Uri.parse("android.resource://$packageName/${R.drawable.leskov_logo}"))
                             .build()
                     )
                     .build()
@@ -175,6 +178,7 @@ class LeskovNativeAudioService : MediaSessionService() {
         private const val EXTRA_TITLE = "title"
         private const val EXTRA_ARTIST = "artist"
         private const val EXTRA_POSITION_MS = "position_ms"
+        private const val EXTRA_ARTWORK = "artwork_url"
         @Volatile private var active = false
         private val _state = MutableStateFlow(NativeAudioState())
         val state = _state.asStateFlow()
@@ -185,7 +189,8 @@ class LeskovNativeAudioService : MediaSessionService() {
             uri.userInfo == null && uri.port in listOf(-1, 443)
 
         /** Called only after an actual user-started audio element is playing. */
-        fun handoff(context: Context, url: String, title: String, artist: String, positionMs: Long): Boolean {
+        fun handoff(context: Context, url: String, title: String, artist: String,
+                    artwork: String, positionMs: Long): Boolean {
             val uri = try { Uri.parse(url) } catch (_: Exception) { null }
             if (!isAllowedAudioUri(uri)) return false
             return try {
@@ -194,6 +199,7 @@ class LeskovNativeAudioService : MediaSessionService() {
                     putExtra(EXTRA_URL, uri.toString())
                     putExtra(EXTRA_TITLE, title)
                     putExtra(EXTRA_ARTIST, artist)
+                    putExtra(EXTRA_ARTWORK, artwork)
                     putExtra(EXTRA_POSITION_MS, positionMs)
                 }
                 ContextCompat.startForegroundService(context, intent)
