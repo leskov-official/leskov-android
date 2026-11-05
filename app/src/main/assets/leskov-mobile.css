@@ -49,6 +49,21 @@ html[data-leskov-app] #leskov-native-playback-badge { display: none !important; 
     html[data-leskov-app] #headerPlayerPanel .header-player-mode { flex: 1 1 auto; min-width: 0; font-size: 12px !important; padding: 8px !important; white-space: normal !important; }
     html[data-leskov-app] :is(.profile-player-fab,.floating-player-toggle) { max-width: 48px !important; max-height: 48px !important; }
 
+    html[data-leskov-app] .notifications-prefs-modal-shell:not([hidden]) {
+        inset: 0 !important; width: 100% !important; height: 100dvh !important;
+        padding: 12px !important; box-sizing: border-box !important;
+        place-items: center !important; align-items: center !important; overflow: hidden !important;
+    }
+    html[data-leskov-app] .notifications-prefs-modal {
+        box-sizing: border-box !important; width: min(100%,440px) !important;
+        max-width: 100% !important; max-height: calc(100dvh - 24px) !important;
+        margin: 0 !important; padding: 18px !important; overflow-y: auto !important;
+        border-radius: 20px !important;
+    }
+    html[data-leskov-app] .leskov-notifications__head .leskov-section-head > div { min-width: 0; max-width: 100%; }
+    html[data-leskov-app] .leskov-notifications__toolbar { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+    html[data-leskov-app] .leskov-notifications__toolbar button { min-width: 0; font-size: 13px; white-space: normal; }
+
     /* Both call engines: overlay fills the WebView; only its card scrolls. */
     html[data-leskov-app] :is(#callOverlay,#incomingCallModal,[data-call-incoming],[data-call-active]):not([hidden]) {
         position: fixed !important; inset: 0 !important; width: 100% !important; height: 100dvh !important;

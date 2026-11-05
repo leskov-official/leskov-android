@@ -29,6 +29,7 @@
 - Офлайн-тесты аудиомоста и app shell: источники, пауза, метаданные, перемотка, команды обоих плееров, переходы, защита звонка и включение нативной кнопки Push.
 - Реальные `player.min.js` и `site.min.js` в Chromium с локальными WAV: play/pause/resume/seek/next; навигация из приложения и Back сохраняют **тот же документ и тот же продолжающий играть audio**. Добавленная кнопка отсутствует.
 - Реальная разметка звонков из messages.php и includes/calls.php без персональных данных: 32 сочетания обоих движков, светлой/тёмной темы, портрета/альбомной ориентации. Кнопки не выходят за экран и не обрезают текст.
+- Реальная разметка центра уведомлений и настроек с синтетическими данными: ширины 320/360/412 px, границы страницы и модального окна, включение кнопки Android Push даже после отключения браузерным скриптом.
 - В Android-тестах проверяется отображение всех шести вкладок на 320 dp при системном шрифте 200%, на русском и эстонском.
 - CI: assembleDebug, Robolectric, lintDebug. Полный журнал и APK доступны в GitHub Actions для соответствующего коммита.
 
@@ -37,6 +38,7 @@
 ```bash
 NODE_PATH=/tmp/leskov-ui-check/node_modules node tools/check_premium_player.cjs
 NODE_PATH=/tmp/leskov-ui-check/node_modules node tools/check_call_layout.cjs
+NODE_PATH=/tmp/leskov-ui-check/node_modules node tools/check_notifications_layout.cjs
 NODE_PATH=/tmp/leskov-ui-check/node_modules node tools/check_mobile_layout.cjs
 ```
 

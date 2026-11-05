@@ -371,8 +371,7 @@ fun LeskovApp(
                 enter = fadeIn(tween(140)) + slideInVertically(tween(180)) { it / 2 },
                 exit = fadeOut(tween(120)) + slideOutVertically(tween(150)) { it / 2 }
             ) {
-            // Exactly one on-screen player: the website's own player. Media3 remains
-            // available for background audio and system lock-screen controls only.
+            // The website owns playback and its persistent player across navigation.
             LeskovBottomBar(
                     selectedIndex = if (uiState.showMoreSheet) 5 else uiState.selectedTabIndex,
                     language = uiState.language,
