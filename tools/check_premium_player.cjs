@@ -42,5 +42,43 @@ const root=path.resolve(__dirname,'..');
  await page.evaluate(()=>{window.__leskovNativePlayback.active=false;window.__leskovAndroidAudio.renderNative()});
  assert.equal(await page.locator('#leskov-native-playback-badge').count(),0);
  console.log('PASS real website Premium Player class + bridge: play, pause, resume, seek, next, queue, detached media, native status');
+ // A second fixture runs the site's independent header engine, without LeskovPlayer.
+ const siteResponse=await fetch('https://lesv.online/scripts/site.min.js');
+ if(!siteResponse.ok)throw Error('Header engine unavailable: '+siteResponse.status);
+ const headerScript=await siteResponse.text();
+ const header=await b.newPage({viewport:{width:320,height:720}});
+ const headerHtml=`<html lang="ru"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+ <body data-user-premium-active="1"><button data-header-player-toggle>Player</button>
+ <div id="headerPlayerPanel" class="header-player-panel" data-player-mode="sequential">
+ <div class="header-player-dialog"><div class="header-player-shell"><div data-header-player data-player-mode="sequential">
+ <audio src="/one.wav" preload="auto"></audio><img data-header-cover src="/cover.webp">
+ <strong data-header-title>Header One</strong><span data-header-artist>LESKOV</span>
+ <button data-header-prev>Previous</button><button data-header-play>Play</button><button data-header-next>Next</button>
+ <input type="range" min="0" max="100" data-header-range><span data-header-current></span><span data-header-duration></span>
+ </div><div class="header-player-playlist">
+ <button class="is-current" data-header-player-track data-audio="/one.wav" data-title="Header One" data-artist="LESKOV">One</button>
+ <button data-header-player-track data-audio="/two.wav" data-title="Header Two" data-artist="LESKOV">Two</button>
+ </div></div></div></div></body></html>`;
+ await header.route('https://lesv.online/**',route=>route.fulfill(route.request().url().endsWith('.wav')?
+  {status:200,contentType:'audio/wav',body:wav}:{status:200,contentType:'text/html',body:headerHtml}));
+ await header.goto('https://lesv.online/header-fixture');
+ await header.evaluate(()=>{window.states=[];window.LeskovAudioBridge={postMessage:s=>window.states.push(JSON.parse(s))};});
+ await header.addScriptTag({content:fs.readFileSync(path.join(root,'app/src/main/assets/leskov-player-bridge.js'),'utf8')});
+ await header.addScriptTag({content:headerScript});
+ await header.waitForFunction(()=>!!window.__leskovHeaderPlayer);
+ await header.evaluate(()=>document.querySelector('[data-header-play]').click());
+ await header.waitForFunction(()=>window.states.some(s=>s.playing&&s.title==='Header One'));
+ await header.evaluate(()=>window.__leskovAndroidAudio.command('pause'));
+ await header.waitForFunction(()=>window.states.at(-1).playing===false);
+ assert.equal(await header.evaluate(()=>window.states.at(-1).title),'Header One');
+ await header.evaluate(()=>window.__leskovAndroidAudio.command('play'));
+ await header.waitForFunction(()=>window.states.at(-1).playing===true);
+ await header.evaluate(()=>window.__leskovAndroidAudio.command('seek:5000'));
+ await header.waitForFunction(()=>window.states.at(-1).positionMs>=5000);
+ await header.evaluate(()=>window.__leskovAndroidAudio.command('next'));
+ await header.waitForFunction(()=>window.states.at(-1).title==='Header Two'&&window.states.at(-1).playing);
+ const headerSnap=await header.evaluate(()=>JSON.parse(window.__leskovAndroidAudio.snapshot()));
+ assert.equal(headerSnap.queueIndex,1);assert.equal(headerSnap.queue.length,2);
+ console.log('PASS real website header Premium engine + bridge: play, pause, resume, seek, next, queue');
  await b.close();
 })().catch(e=>{console.error(e);process.exit(1)});

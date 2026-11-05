@@ -6,18 +6,19 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../app/src/main/assets/leskov-player-bridge.js'), 'utf8');
 let assertions = 0;
 function check(actual, expected) { assert.deepEqual(actual, expected); assertions++; }
-function fixture({dom = [], active = null, instances = [], origin = 'https://lesv.online'} = {}) {
+function fixture({dom = [], active = null, instances = [], header = null, headerAudio = null, origin = 'https://lesv.online'} = {}) {
     const messages = [], docEvents = {}, windowEvents = {};
     let tick, tasks = [];
     const document = {
         baseURI: origin + '/profile.php',
         querySelectorAll: () => dom,
-        querySelector: () => null,
-        getElementById: () => null,
+        querySelector: selector => selector === '[data-header-player]' && header ? header.root : null,
+        getElementById: id => id === 'headerPlayerPanel' && header ? header.panel : null,
         addEventListener: (name, fn) => { docEvents[name] = fn; }
     };
     const window = {
         __leskovPlayerManager: {active, instances: new Set(instances)},
+        __leskovHeaderPlayerAudio: headerAudio,
         LeskovAudioBridge: {postMessage: raw => messages.push(JSON.parse(raw))},
         addEventListener: (name, fn) => { windowEvents[name] = fn; }
     };
@@ -72,7 +73,7 @@ check(f.api.snapshot(), null);
 f.api.command('play'); f.flush(); check(f.messages.at(-1).playing, true);
 
 // Ringtones and WebRTC must never stop native music or appear as its notification.
-for (const a of [audio(''),audio('https://evil.test/song.mp3'),audio('https://lesv.online/call_ringtone.wav'),
+for (const a of [audio(''),audio('https://evil.test/song.mp3'),audio('https://lesv.online/call_ringtone.wav'),audio('https://lesv.online/uploads/notification_chime.wav'),
     audio(undefined,{srcObject:{}}),audio(undefined,{tagName:'VIDEO'}),
     audio('https://user:pass@lesv.online/a.mp3'),audio('http://lesv.online/a.mp3')]) {
     const rejected = fixture({dom:[a]});
@@ -101,5 +102,32 @@ for (const playlist of [[{src:'https://evil.test/a.mp3'}], Array(101).fill({src:
 }
 const single = fixture({active:{...player,playlist:[]}});
 check(single.messages[0].hasNext,false); check(single.api.command('next'),false);
+// The header panel is a separate Premium engine without manager.active/instances.
+const headerMedia = audio('https://lesv.online/header/one.mp3');
+const headerTitle = {textContent:'Header One'};
+const headerTracks = [{dataset:{audio:'/header/one.mp3',title:'Header One',artist:'Igor'}},
+    {dataset:{audio:'/header/two.mp3',title:'Header Two',artist:'Igor'}}];
+let headerToggles = 0;
+const headerRoot = {dataset:{playerMode:'repeat'}, querySelector(selector) {
+    if (selector === 'audio') return headerMedia;
+    if (selector === '[data-header-title]') return headerTitle;
+    if (selector === '[data-header-artist]') return {textContent:'Header Artist'};
+    if (selector === '[data-header-cover]') return {src:'https://lesv.online/header/cover.webp'};
+    if (selector === '[data-header-play]') return {click() { headerToggles++; headerMedia.paused = !headerMedia.paused; }};
+    if (selector === '[data-header-next]') return {click() { headerMedia.currentSrc='https://lesv.online/header/two.mp3'; headerTitle.textContent='Header Two'; }};
+    return null;
+}};
+const headerPanel = {dataset:{}, querySelectorAll: () => headerTracks};
+const h = fixture({header:{root:headerRoot,panel:headerPanel},headerAudio:headerMedia});
+check(h.messages[0].title,'Header One'); check(h.messages[0].artist,'Header Artist');
+check(h.messages[0].hasNext,true);
+const headerSnapshot = JSON.parse(h.api.snapshot());
+check(headerSnapshot.queue.length,2); check(headerSnapshot.mode,'repeat');
+h.api.command('pause');h.flush();check(headerToggles,1);check(h.messages.at(-1).playing,false);
+h.api.command('play');h.flush();check(headerToggles,2);check(h.messages.at(-1).playing,true);
+h.api.command('next');h.flush();check(h.messages.at(-1).title,'Header Two');
+check(JSON.parse(h.api.snapshot()).queueIndex,1);
+h.api.command('seek:5000');check(headerMedia.currentTime,5);
+
 const foreign = fixture({origin:'https://evil.test'}); check(foreign.api,undefined);
 console.log(`PASS player bridge: ${assertions} assertions (Premium, detached media, pause/seek, queue, calls, origin)`);

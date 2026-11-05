@@ -9,7 +9,7 @@
     var seen = new WeakSet();
     var timer = null;
     var previous = '';
-    var playerSelector = '.leskov-player, .premium-player, [data-premium-player], #premiumPlayerModal';
+    var playerSelector = '.leskov-player, .premium-player, [data-premium-player], #premiumPlayerModal, [data-header-player], [data-promo-player]';
     function manager() { return window.__leskovPlayerManager; }
     function eligible(a) {
         if (!a || a.tagName !== 'AUDIO' || a.srcObject) return false;
@@ -18,8 +18,36 @@
         try {
             var u = new URL(raw, document.baseURI);
             return (u.origin === location.origin || (u.protocol === 'blob:' && u.origin === location.origin)) &&
-                !u.username && !u.password && !/(?:call[_-]?ringtone|notification[_-]?sound)/i.test(u.pathname);
+                !u.username && !u.password && !/(?:call[_-]?ringtone|notification[_-]?(?:sound|chime))/i.test(u.pathname);
         } catch (_) { return false; }
+    }
+    // The header Premium panel is a second site engine on pages without LeskovPlayer.
+    // Invoke its buttons so its pause intent, persistence and playlist mode remain authoritative.
+    function headerPlayer(a) {
+        var root = document.querySelector('[data-header-player]');
+        if (!root || (root.querySelector('audio') !== a && window.__leskovHeaderPlayerAudio !== a)) return null;
+        var panel = document.getElementById('headerPlayerPanel') || root;
+        var tracks = Array.from(panel.querySelectorAll('[data-header-player-track]'));
+        function text(selector) { var el=root.querySelector(selector);return el ? el.textContent.trim() : ''; }
+        function click(selector) {
+            var button=root.querySelector(selector);
+            if (!button || button.disabled) return false;
+            button.click(); return true;
+        }
+        return {media:a, element:root, title:text('[data-header-title]'), artist:text('[data-header-artist]'),
+            cover:(root.querySelector('[data-header-cover]') || {}).src || '',
+            mode:root.dataset.playerMode || panel.dataset.playerMode || 'sequential',
+            playlist:tracks.map(function(el) { return {src:el.dataset.audio,title:el.dataset.title,
+                artist:el.dataset.artist,cover:el.dataset.cover}; }),
+            playlistIndex:tracks.findIndex(function(el) {
+                try { return new URL(el.dataset.audio,document.baseURI).href === (a.currentSrc || a.src); }
+                catch (_) { return false; }
+            }),
+            play:function() { if (a.paused && !click('[data-header-play]')) return a.play(); },
+            pause:function() { if (!a.paused && !click('[data-header-play]')) a.pause(); },
+            next:function() { click('[data-header-next]'); }, prev:function() { click('[data-header-prev]'); },
+            seek:function(seconds) { a.currentTime=seconds; }
+        };
     }
     function candidates() {
         var m = manager(), result = [];
@@ -27,8 +55,11 @@
         if (m && m.instances && typeof m.instances.forEach === 'function') {
             m.instances.forEach(function(p) { if (p) result.push({media:p.media, player:p}); });
         }
-        document.querySelectorAll('audio').forEach(function(a) {
-            if (!result.some(function(x) { return x.media === a; })) result.push({media:a, player:null});
+        var audios = Array.from(document.querySelectorAll('audio'));
+        if (window.__leskovHeaderPlayerAudio) audios.push(window.__leskovHeaderPlayerAudio);
+        if (window.__leskovPromoPlayerAudio) audios.push(window.__leskovPromoPlayerAudio);
+        audios.forEach(function(a) {
+            if (!result.some(function(x) { return x.media === a; })) result.push({media:a, player:headerPlayer(a)});
         });
         return result.filter(function(x) { return eligible(x.media); });
     }
@@ -37,6 +68,8 @@
         var playing = list.find(function(x) { return !x.media.paused && !x.media.ended; });
         if (playing) last = playing;
         else if (last && !list.some(function(x) { return x.media === last.media; })) last = null;
+        // Rebuild adapters after a track/mode change; keep the media identity across pauses.
+        if (last) last = list.find(function(x) { return x.media === last.media; }) || null;
         return playing || last;
     }
     function safeArtwork(raw) {
@@ -130,7 +163,7 @@
                     var url = new URL(track.src,document.baseURI);
                     if (!track.src || url.origin !== location.origin || url.protocol !== 'https:' ||
                         url.username || url.password || url.href.length > 4096 ||
-                        /(?:call[_-]?ringtone|notification[_-]?sound)/i.test(url.pathname)) return null;
+                        /(?:call[_-]?ringtone|notification[_-]?(?:sound|chime))/i.test(url.pathname)) return null;
                     return {url:url.href,title:String(track.title || 'LESKOV').slice(0,160),
                         artist:String(track.artist || 'Igor Leskov').slice(0,160),artwork:safeArtwork(track.cover || '').slice(0,1500)};
                 } catch (_) { return null; }
@@ -147,7 +180,7 @@
         var state = window.__leskovNativePlayback;
         var badge = document.getElementById('leskov-native-playback-badge');
         if (!state || !state.active) { if (badge) badge.remove(); return; }
-        var player = document.querySelector(playerSelector);
+        var player = document.querySelector('#headerPlayerPanel [data-header-player]') || document.querySelector(playerSelector);
         if (!player || !window.LeskovNativePlayback) return;
         if (!badge) {
             badge = document.createElement('button');

@@ -13,9 +13,9 @@
 
 ## Premium-плеер сайта
 
-`leskov-player-bridge.js` использует `window.__leskovPlayerManager.active`, `instances`, события `leskov:player:*` и реальный `media` плеера. Поддерживает аудио вне DOM и плееры, добавленные после загрузки страницы. При поддержке WebView скрипт устанавливается до скриптов страницы, иначе при commit/finish.
+`leskov-player-bridge.js` использует `window.__leskovPlayerManager.active`, `instances`, отдельный header Premium engine (`__leskovHeaderPlayerAudio`, `[data-header-player]`), события `leskov:player:*` и реальный `media` плеера. Поддерживает аудио вне DOM и плееры, добавленные после загрузки страницы. При поддержке WebView скрипт устанавливается до скриптов страницы, иначе при commit/finish.
 
-Название, исполнитель, обложка, позиция, длительность и возможность смены трека передаются в Android. При паузе сохраняются сведения о выбранной композиции. Команды Android направляются тому же экземпляру плеера через play/pause/seek/next/prev; произвольный первый audio страницы больше не используется для управления.
+Название, исполнитель, обложка, позиция, длительность и возможность смены трека передаются в Android. Для отдельной панели в шапке метаданные и очередь читаются из её текущего состояния, а кнопки сайта сохраняют собственную логику паузы и режимов. При паузе сохраняются сведения о выбранной композиции. Команды Android направляются тому же экземпляру плеера через play/pause/seek/next/prev; произвольный первый audio страницы больше не используется для управления.
 
 Ringtone, notification sound, WebRTC srcObject, видео и чужие источники не считаются музыкой. Blob-аудио контролируется внутри WebView, но не передаётся Media3.
 
@@ -28,9 +28,9 @@ Ringtone, notification sound, WebRTC srcObject, видео и чужие ист�
 - `python3 tools/validate_source.py`: 61 PASS.
 - `node tools/test_audio_snapshot.js`: правила передачи аудио.
 - `NativeAudioQueueTest`: 4 Robolectric-теста порядка очереди, метаданных, неподходящих источников, обложек и ограничений размера.
-- `node tools/test_player_bridge.js`: 53 проверки Premium, detached audio, метаданных, паузы, перемотки, очереди, ограничений источника и исключения звонков.
+- `node tools/test_player_bridge.js`: 67 проверок Premium, detached audio, метаданных, паузы, перемотки, очереди, ограничений источника и исключения звонков.
 - Chromium + Playwright: index.php, discover.php, auth.php, terms.php, privacy_policy.php, profile.php, feed.php, messages.php на ширинах 320, 360, 412, 768, 1024 CSS px. 40 вариантов без выявленного горизонтального переполнения проверенных контейнеров. Закрытые маршруты проверены в гостевом состоянии с серверными перенаправлениями.
-- Реальный публичный `scripts/player.min.js` сайта, загруженный 05.11.2026, проверен в Chromium с локально сгенерированными WAV: play, pause, resume, seek, next, очередь, detached media. Это проверка совместимости класса плеера, а не Premium-авторизации.
+- Реальные публичные `scripts/player.min.js` и `scripts/site.min.js` сайта, загруженный 05.11.2026, проверены в Chromium с локально сгенерированными WAV: play, pause, resume, seek, next, очередь, detached media. Проверены и основной класс, и отдельный Premium-плеер в шапке. Это проверка совместимости движков, а не Premium-авторизации.
 
 Повтор браузерных проверок (Playwright устанавливается вне проекта):
 
