@@ -10,6 +10,12 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -74,13 +80,16 @@ fun LeskovBottomBar(
     ) {
         Column {
             HorizontalDivider(color = Color.White.copy(alpha = 0.075f), thickness = 1.dp)
-            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                val itemWidth = maxOf(maxWidth / LESKOV_NAV_TABS.size, 64.dp)
+            BoxWithConstraints(Modifier.widthIn(max = 720.dp).fillMaxWidth().align(Alignment.CenterHorizontally)) {
+                val fontScale = LocalDensity.current.fontScale
+                val itemWidth = maxOf((maxWidth - 16.dp) / LESKOV_NAV_TABS.size,
+                    64.dp * fontScale.coerceIn(1f, 1.6f))
                 Row(
                     modifier = Modifier
                         .horizontalScroll(rememberScrollState())
+                        .selectableGroup()
                         .navigationBarsPadding()
-                        .padding(top = 7.dp, bottom = 5.dp),
+                        .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 6.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -99,6 +108,7 @@ fun LeskovBottomBar(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun LeskovNavItem(
     tab: NavigationTab,
@@ -108,6 +118,13 @@ private fun LeskovNavItem(
     modifier: Modifier = Modifier
 ) {
     val haptics = LocalHapticFeedback.current
+    val bringIntoView = remember { BringIntoViewRequester() }
+    LaunchedEffect(isSelected) {
+        if (isSelected) {
+            androidx.compose.runtime.withFrameNanos { }
+            bringIntoView.bringIntoView()
+        }
+    }
     val background by animateColorAsState(
         if (isSelected) LeskovSurfaceSelected else Color.Transparent,
         label = "navBackground"
@@ -132,7 +149,8 @@ private fun LeskovNavItem(
     )
     Box(
         modifier = modifier
-            .heightIn(min = 64.dp)
+            .bringIntoViewRequester(bringIntoView)
+            .heightIn(min = 68.dp)
             .clip(RoundedCornerShape(15.dp))
             .background(background)
             .semantics { selected = isSelected }
@@ -155,7 +173,7 @@ private fun LeskovNavItem(
                 imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
                 contentDescription = null,
                 tint = iconTint,
-                modifier = Modifier.size(20.dp).scale(scale)
+                modifier = Modifier.size(24.dp).scale(scale)
             )
             Spacer(Modifier.height(3.dp))
             Crossfade(targetState = label, label = "navTranslation") { currentLabel ->

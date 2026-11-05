@@ -22,7 +22,9 @@ import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.example.R
+import com.example.BuildConfig
 import com.example.model.LeskovConstants
+import org.json.JSONArray
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -52,7 +54,7 @@ class LeskovNativeAudioService : MediaSessionService() {
         super.onCreate()
         httpFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(false)
-            .setUserAgent("LESKOV-Android/3.0")
+            .setUserAgent("LESKOV-Android/${BuildConfig.VERSION_NAME}")
         val dataSourceFactory = DefaultDataSource.Factory(this, httpFactory)
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
@@ -74,6 +76,13 @@ class LeskovNativeAudioService : MediaSessionService() {
                         player.clearMediaItems()
                         _state.update { it.copy(active = false, playing = false,
                             buffering = false, error = "stream_unavailable") }
+                    }
+
+                    override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                        _state.update { it.copy(
+                            title = mediaItem?.mediaMetadata?.title?.toString() ?: "LESKOV",
+                            artist = mediaItem?.mediaMetadata?.artist?.toString() ?: "Igor Leskov"
+                        ) }
                     }
 
                     override fun onPlaybackStateChanged(playbackState: Int) {
@@ -133,7 +142,20 @@ class LeskovNativeAudioService : MediaSessionService() {
                     )
                     .build()
                 streamFailed = false
-                player.setMediaItem(mediaItem, positionMs)
+                val queue = parseQueue(intent.getStringExtra(EXTRA_QUEUE))
+                val queueIndex = intent.getIntExtra(EXTRA_QUEUE_INDEX, 0)
+                val validQueue = queue.isNotEmpty() && queueIndex in queue.indices &&
+                    queue[queueIndex].localConfiguration?.uri == uri
+                if (validQueue) {
+                    player.setMediaItems(queue, queueIndex, positionMs)
+                    val mode = intent.getStringExtra(EXTRA_MODE)
+                    player.shuffleModeEnabled = mode == "shuffle"
+                    player.repeatMode = if (mode == "repeat") Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_ALL
+                } else {
+                    player.shuffleModeEnabled = false
+                    player.repeatMode = Player.REPEAT_MODE_OFF
+                    player.setMediaItem(mediaItem, positionMs)
+                }
                 _state.value = NativeAudioState(active = true, playing = false, title = title,
                     artist = artist, buffering = true)
                 player.prepare()
@@ -160,6 +182,24 @@ class LeskovNativeAudioService : MediaSessionService() {
         return super.onStartCommand(intent, flags, startId)
     }
 
+    private fun parseQueue(raw: String?): List<MediaItem> = try {
+        val json = JSONArray(raw ?: "[]")
+        if (json.length() !in 1..100 || (raw?.length ?: 0) > 600_000) emptyList()
+        else (0 until json.length()).map { index ->
+            val track = json.getJSONObject(index)
+            val uri = Uri.parse(track.getString("url"))
+            require(isAllowedAudioUri(uri))
+            val artwork = track.optString("artwork").takeIf { it.isNotBlank() }
+                ?.let { Uri.parse(it) }?.takeIf { isAllowedAudioUri(it) }
+            MediaItem.Builder().setUri(uri).setMediaMetadata(
+                MediaMetadata.Builder().setTitle(track.optString("title", "LESKOV").take(160))
+                    .setArtist(track.optString("artist", "Igor Leskov").take(160))
+                    .setArtworkUri(artwork ?: Uri.parse("android.resource://$packageName/${R.drawable.leskov_logo}"))
+                    .build()
+            ).build()
+        }
+    } catch (_: Exception) { emptyList() }
+
     override fun onDestroy() {
         active = false
         _state.value = NativeAudioState()
@@ -179,6 +219,9 @@ class LeskovNativeAudioService : MediaSessionService() {
         private const val EXTRA_ARTIST = "artist"
         private const val EXTRA_POSITION_MS = "position_ms"
         private const val EXTRA_ARTWORK = "artwork_url"
+        private const val EXTRA_QUEUE = "authorized_queue"
+        private const val EXTRA_QUEUE_INDEX = "queue_index"
+        private const val EXTRA_MODE = "queue_mode"
         @Volatile private var active = false
         private val _state = MutableStateFlow(NativeAudioState())
         val state = _state.asStateFlow()
@@ -190,7 +233,8 @@ class LeskovNativeAudioService : MediaSessionService() {
 
         /** Called only after an actual user-started audio element is playing. */
         fun handoff(context: Context, url: String, title: String, artist: String,
-                    artwork: String, positionMs: Long): Boolean {
+                    artwork: String, positionMs: Long, queueJson: String? = null,
+                    queueIndex: Int = 0, mode: String = "sequential"): Boolean {
             val uri = try { Uri.parse(url) } catch (_: Exception) { null }
             if (!isAllowedAudioUri(uri)) return false
             return try {
@@ -201,6 +245,9 @@ class LeskovNativeAudioService : MediaSessionService() {
                     putExtra(EXTRA_ARTIST, artist)
                     putExtra(EXTRA_ARTWORK, artwork)
                     putExtra(EXTRA_POSITION_MS, positionMs)
+                    putExtra(EXTRA_QUEUE, queueJson?.takeIf { it.length <= 600_000 })
+                    putExtra(EXTRA_QUEUE_INDEX, queueIndex)
+                    putExtra(EXTRA_MODE, mode)
                 }
                 ContextCompat.startForegroundService(context, intent)
                 true

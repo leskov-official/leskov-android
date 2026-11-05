@@ -35,11 +35,12 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.BuildConfig
 import com.example.media.LeskovMediaService
@@ -66,6 +67,29 @@ fun LeskovWebView(
     fullscreenVideoHost: FullscreenVideoHost? = null
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val audioBridgeScript = remember { context.assets.open("leskov-player-bridge.js").bufferedReader().use { it.readText() } }
+    val mobileStyle = remember { context.assets.open("leskov-mobile.css").bufferedReader().use { it.readText() } }
+    val layoutScript = remember(mobileStyle) {
+        """
+        (function(){
+          if(location.origin!=='https://lesv.online' || window.top!==window) return;
+          function install(){
+            if(!document.documentElement || !document.head) return false;
+            document.documentElement.setAttribute('data-leskov-app','');
+            var viewport=document.querySelector('meta[name="viewport"]');
+            if(!viewport){viewport=document.createElement('meta');viewport.name='viewport';document.head.appendChild(viewport);}
+            viewport.content='width=device-width, initial-scale=1, viewport-fit=cover';
+            if(!document.getElementById('leskov-app-design')){
+              var style=document.createElement('style');style.id='leskov-app-design';
+              style.textContent=${JSONObject.quote(mobileStyle)};document.head.appendChild(style);
+            }
+            return true;
+          }
+          if(!install()){var observer=new MutationObserver(function(){if(install()) observer.disconnect();});observer.observe(document,{childList:true,subtree:true});}
+        })();
+        """.trimIndent()
+    }
 
     val webView = remember {
         WebView(context).apply {
@@ -81,8 +105,8 @@ fun LeskovWebView(
                 domStorageEnabled = true
                 mediaPlaybackRequiresUserGesture = false
                 useWideViewPort = true
-                loadWithOverviewMode = true
-                textZoom = 100
+                loadWithOverviewMode = false
+                textZoom = (configuration.fontScale * 100).toInt().coerceIn(75, 200)
                 builtInZoomControls = true
                 displayZoomControls = false
                 setSupportZoom(true)
@@ -93,6 +117,12 @@ fun LeskovWebView(
                 mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                 cacheMode = WebSettings.LOAD_DEFAULT
                 userAgentString = userAgentString + LeskovConstants.USER_AGENT_SUFFIX
+            }
+
+            // Install before site scripts so an early Premium autoplay cannot be missed.
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+                WebViewCompat.addDocumentStartJavaScript(this, audioBridgeScript + "\n" + layoutScript,
+                    setOf("https://${LeskovConstants.HOST}"))
             }
 
             val cookieManager = CookieManager.getInstance()
@@ -118,6 +148,7 @@ fun LeskovWebView(
                             LeskovNativeAudioService.stop(context)
                             return@addWebMessageListener
                         }
+                        if (LeskovNativeAudioService.isActive() && !payload.optBoolean("playing", false)) return@addWebMessageListener
                         val playing = payload.optBoolean("playing", false)
                         val title = payload.optString("title", "LESKOV").take(160)
                         val artist = payload.optString("artist", "Igor Leskov").take(160)
@@ -202,6 +233,14 @@ fun LeskovWebView(
                         openExternalUri(context, uri)
                     }
                     return true
+                }
+
+                override fun onPageCommitVisible(view: WebView?, url: String?) {
+                    super.onPageCommitVisible(view, url)
+                    if (view != null && isInternalUri(Uri.parse(url.orEmpty()))) {
+                        view.evaluateJavascript(layoutScript, null)
+                        view.evaluateJavascript(audioBridgeScript, null)
+                    }
                 }
 
                 override fun onPageFinished(view: WebView?, url: String?) {
@@ -307,7 +346,7 @@ fun LeskovWebView(
     // Publish the current Media3 handoff state to whichever PHP page is visible.
     // The website can listen for "leskov:native-playback" to keep its own controls
     // in sync without spawning a second player or adding a bottom mini-player.
-    val nativeHandoff by LeskovNativeAudioService.state.collectAsState()
+    val nativeHandoff by LeskovNativeAudioService.state.collectAsStateWithLifecycle()
     androidx.compose.runtime.LaunchedEffect(nativeHandoff.active, nativeHandoff.playing, nativeHandoff.title) {
         webView.post {
             val current = webView.url.orEmpty()
@@ -321,18 +360,11 @@ fun LeskovWebView(
         // Forward media controls (play/pause from notification) to web player
         LeskovMediaService.onMediaActionRequested = { action ->
             webView.post {
-                val js = when {
-                    action == "pause" -> "(function(){try{var p=window.__leskovPlayerManager?.active;if(p&&typeof p.pause==='function'){p.pause();return;}var a=Array.from(document.querySelectorAll('audio')).find(x=>!x.paused);if(a)a.pause();}catch(e){}})();"
-                    action == "play" -> "(function(){try{var p=window.__leskovPlayerManager?.active;if(p&&typeof p.play==='function'){p.play();return;}var a=Array.from(document.querySelectorAll('audio')).find(x=>x.currentSrc)||document.querySelector('audio');if(a)a.play().catch(()=>{});}catch(e){}})();"
-                    action == "next" -> "(function(){try{var p=window.__leskovPlayerManager?.active;if(p&&typeof p.next==='function'){p.next();return;}var b=document.querySelector('[data-action=\"next\"], .player-next, .next-track, #nextBtn');if(b)b.click();}catch(e){}})();"
-                    action == "previous" -> "(function(){try{var p=window.__leskovPlayerManager?.active;if(p&&typeof p.previous==='function'){p.previous();return;}if(p&&typeof p.prev==='function'){p.prev();return;}var b=document.querySelector('[data-action=\"previous\"], [data-action=\"prev\"], .player-prev, .prev-track, #prevBtn');if(b)b.click();}catch(e){}})();"
-                    action.startsWith("seek:") -> {
-                        val ms = action.removePrefix("seek:").toLongOrNull()?.coerceIn(0L, 86_400_000L)
-                        if (ms == null) null else "(function(){try{var a=Array.from(document.querySelectorAll('audio')).find(x=>!x.paused)||document.querySelector('audio');if(a&&Number.isFinite(a.duration)){a.currentTime=Math.min(a.duration,${ms}/1000);}}catch(e){}})();"
-                    }
-                    else -> null
+                if (isInternalUri(Uri.parse(webView.url.orEmpty()))) {
+                    webView.evaluateJavascript(
+                        "window.__leskovAndroidAudio && window.__leskovAndroidAudio.command(${JSONObject.quote(action)});", null
+                    )
                 }
-                if (js != null) webView.evaluateJavascript(js, null)
             }
         }
 
@@ -347,7 +379,8 @@ fun LeskovWebView(
 
     AndroidView(
         factory = { webView },
-        modifier = modifier.fillMaxSize()
+        modifier = modifier.fillMaxSize(),
+        update = { it.settings.textZoom = (configuration.fontScale * 100).toInt().coerceIn(75, 200) }
     )
 }
 
@@ -397,129 +430,8 @@ private fun applyMobileAppAdaptations(webView: WebView, viewModel: LeskovViewMod
         }
     }
 
-    // 3. Audio Playback Event Bridge (Debounced, robust, no echo loops)
-    val jsAudioBridgeHook = """
-        (function() {
-            try {
-                if (!window.__leskovAudioBridgeHooked) {
-                    window.__leskovAudioBridgeHooked = true;
-
-                    var debounceTimer = null;
-
-                    var evaluateAndNotifyState = function() {
-                        if (!window.LeskovAudioBridge) return;
-                        var audios = document.querySelectorAll('audio');
-                        var activeAudio = null;
-                        var isAnyPlaying = false;
-
-                        for (var i = 0; i < audios.length; i++) {
-                            var a = audios[i];
-                            if (!a.paused && !a.ended) {
-                                isAnyPlaying = true;
-                                activeAudio = a;
-                                break;
-                            }
-                        }
-
-                        if (isAnyPlaying && activeAudio) {
-                            var title = '';
-                            var artist = 'Igor Leskov';
-                            var artwork = '';
-                            if (navigator.mediaSession && navigator.mediaSession.metadata) {
-                                var metadata = navigator.mediaSession.metadata;
-                                title = metadata.title || '';
-                                artist = metadata.artist || 'Igor Leskov';
-                                if (metadata.artwork && metadata.artwork.length) {
-                                    artwork = metadata.artwork[metadata.artwork.length - 1].src || '';
-                                }
-                            }
-                            var trackNode = activeAudio.closest('[data-cover], [data-track-cover], .leskov-player, .track-card');
-                            if (trackNode) {
-                                if (!title) title = trackNode.getAttribute('data-title') || trackNode.getAttribute('data-track-title') || '';
-                                if (!artwork) artwork = trackNode.getAttribute('data-cover') || trackNode.getAttribute('data-track-cover') || '';
-                            }
-                            if (artwork) {
-                                try {
-                                    var imageUrl = new URL(artwork, document.baseURI);
-                                    artwork = imageUrl.protocol === 'https:' && imageUrl.hostname === 'lesv.online' &&
-                                        !imageUrl.username && !imageUrl.password ? imageUrl.href : '';
-                                } catch(e) { artwork = ''; }
-                            }
-                            if (!title) {
-                                var titleEl = document.querySelector('.player-title, [data-track-title], .track-name, .music-player-title, .song-title');
-                                if (titleEl) title = titleEl.textContent.trim();
-                            }
-                            if (!title && activeAudio.title) {
-                                title = activeAudio.title;
-                            }
-                            if (!title) title = 'Музыка LESKOV';
-                            var controls = window.__leskovPlayerManager && window.__leskovPlayerManager.active;
-                            var hasNext = Boolean((controls && typeof controls.next === 'function') || document.querySelector('[data-action="next"], .player-next, .next-track, #nextBtn'));
-                            var hasPrevious = Boolean((controls && (typeof controls.previous === 'function' || typeof controls.prev === 'function')) || document.querySelector('[data-action="previous"], [data-action="prev"], .player-prev, .prev-track, #prevBtn'));
-                            var pos = Number.isFinite(activeAudio.currentTime) ? Math.round(activeAudio.currentTime*1000) : 0;
-                            var len = Number.isFinite(activeAudio.duration) ? Math.round(activeAudio.duration*1000) : 0;
-                            window.LeskovAudioBridge.postMessage(JSON.stringify({playing:true,title:title,artist:artist,artwork:artwork,positionMs:pos,durationMs:len,hasNext:hasNext,hasPrevious:hasPrevious}));
-                        } else {
-                            window.LeskovAudioBridge.postMessage(JSON.stringify({playing:false,title:'',artist:''}));
-                        }
-                    };
-
-                    var scheduleStateCheck = function() {
-                        if (debounceTimer) clearTimeout(debounceTimer);
-                        debounceTimer = setTimeout(evaluateAndNotifyState, 200);
-                    };
-
-                    // The website's own player is authoritative when the user taps Play.
-                    // Release a previous native handoff before Chromium asks for audio focus.
-                    document.addEventListener('pointerdown', function(e) {
-                        var btn = e.target && e.target.closest && e.target.closest(
-                            '.leskov-player__btn--play, .leskov-player__center-btn[data-action="play"]');
-                        if (btn && window.LeskovAudioBridge) {
-                            try { window.LeskovAudioBridge.postMessage(JSON.stringify({type:'web_start'})); }
-                            catch(ignore) {}
-                        }
-                    }, true);
-
-                    document.addEventListener('play', function(e) {
-                        if (e.target && e.target.tagName === 'AUDIO') {
-                            try {
-                                window.LeskovAudioBridge.postMessage(JSON.stringify({type:'web_start'}));
-                            } catch(e) {}
-                            scheduleStateCheck();
-                        }
-                    }, true);
-
-                    document.addEventListener('playing', function(e) {
-                        if (e.target && e.target.tagName === 'AUDIO') scheduleStateCheck();
-                    }, true);
-                    document.addEventListener('loadeddata', function(e) {
-                        if (e.target && e.target.tagName === 'AUDIO') scheduleStateCheck();
-                    }, true);
-                    document.addEventListener('pause', function(e) {
-                        if (e.target && e.target.tagName === 'AUDIO') {
-                            scheduleStateCheck();
-                        }
-                    }, true);
-
-                    document.addEventListener('timeupdate', function(e) {
-                        if (e.target && e.target.tagName === 'AUDIO') {
-                            if (!window.__leskovLastMediaTimeUpdate || Date.now()-window.__leskovLastMediaTimeUpdate > 3000) {
-                                window.__leskovLastMediaTimeUpdate=Date.now(); scheduleStateCheck();
-                            }
-                        }
-                    }, true);
-                    document.addEventListener('error', function(e) {
-                        if (e.target && e.target.tagName === 'AUDIO') scheduleStateCheck();
-                    }, true);
-                    document.addEventListener('ended', function(e) {
-                        if (e.target && e.target.tagName === 'AUDIO') {
-                            scheduleStateCheck();
-                        }
-                    }, true);
-                }
-            } catch(e) {}
-        })();
-    """.trimIndent()
+    // One bridge for the site's Premium manager, DOM audio and detached audio instances.
+    val jsAudioBridgeHook = webView.context.assets.open("leskov-player-bridge.js").bufferedReader().use { it.readText() }
     webView.evaluateJavascript(jsAudioBridgeHook, null)
 
     // 4. Calls: do not patch getUserMedia or stop all tracks from an Android timer.
@@ -535,16 +447,16 @@ private fun applyMobileAppAdaptations(webView: WebView, viewModel: LeskovViewMod
                 var styleId = 'leskov-mobile-scoped-css';
                 var existing = document.getElementById(styleId);
                 var css = '';
-                if (!document.querySelector('meta[name="viewport"]')) {
-                    var mobileViewport = document.createElement('meta');
+                var mobileViewport = document.querySelector('meta[name="viewport"]');
+                if (!mobileViewport) {
+                    mobileViewport = document.createElement('meta');
                     mobileViewport.name = 'viewport';
-                    mobileViewport.content = 'width=device-width, initial-scale=1';
                     document.head.appendChild(mobileViewport);
                 }
+                mobileViewport.content = 'width=device-width, initial-scale=1, viewport-fit=cover';
 
 
-                // Full-page mobile density adjustment, including modals and site buttons.
-                // WebView viewport is already device-width; root CSS zoom retains proper touch targets.
+                // CSS pixels stay aligned with touch coordinates and the site's seek slider.
                 css += '@media (max-width: 850px) { ';
                 // Never zoom the root: it breaks viewport coordinates and fixed modals.
                 css += 'html { -webkit-text-size-adjust: 100% !important; } ';
@@ -641,15 +553,6 @@ private fun applyMobileAppAdaptations(webView: WebView, viewModel: LeskovViewMod
                     }
                 }
 
-                // Guest protection: disable interactive like events for unauthenticated sessions
-                var uidAttr = document.body ? document.body.getAttribute('data-current-user-id') : '0';
-                if (uidAttr === '0') {
-                    var likes = document.querySelectorAll('.like-btn, .btn-like, [data-action="like"], .reaction-btn');
-                    likes.forEach(function(el) {
-                        el.style.pointerEvents = 'none';
-                        el.style.opacity = '0.8';
-                    });
-                }
             } catch(e) {}
         })();
     """.trimIndent()
@@ -675,18 +578,7 @@ private fun publishNativeSessionToPage(webView: WebView) {
             var state = $json;
             window.__leskovNativePlayback = state;
             window.dispatchEvent(new CustomEvent('leskov:native-playback', {detail:state}));
-            var badge = document.getElementById('leskov-native-playback-badge');
-            if (!state.active) { if (badge) badge.remove(); return; }
-            var player = document.querySelector('.leskov-player, .premium-player, [data-premium-player], #premiumPlayerModal');
-            if (!player || !window.LeskovNativePlayback) return;
-            if (!badge) {
-              badge=document.createElement('button');
-              badge.type='button'; badge.id='leskov-native-playback-badge';
-              badge.style.cssText='display:block;box-sizing:border-box;max-width:100%;width:100%;font-size:12px;line-height:1.5;padding:8px 10px;margin:8px auto;border:1px solid #9b8cfb;border-radius:12px;background:#171d36;color:#f1edff;text-align:center;';
-              badge.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();window.LeskovNativePlayback.postMessage('toggle');});
-              player.appendChild(badge);
-            }
-            badge.textContent=(state.playing?'⏸':'▶')+' '+state.title+' · '+state.artist+' — Android';
+            if (window.__leskovAndroidAudio) window.__leskovAndroidAudio.renderNative();
           }catch(e){}
         })();
     """.trimIndent()

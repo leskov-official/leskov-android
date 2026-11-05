@@ -1,10 +1,5 @@
 package com.example.ui.components
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,7 +27,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -58,12 +54,6 @@ fun LeskovOfflineView(
     modifier: Modifier = Modifier,
     failure: PageFailure? = null
 ) {
-    val transition = rememberInfiniteTransition(label = "offlineBreathe")
-    val iconScale by transition.animateFloat(
-        initialValue = 0.96f, targetValue = 1.04f,
-        animationSpec = infiniteRepeatable(tween(1800), RepeatMode.Reverse),
-        label = "offlineIconScale"
-    )
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -75,6 +65,7 @@ fun LeskovOfflineView(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
             modifier = Modifier
+                .widthIn(max = 440.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
                 .background(LeskovSurfaceVariant.copy(alpha = 0.6f))
@@ -85,7 +76,7 @@ fun LeskovOfflineView(
             Box(
                 modifier = Modifier
                     .size(80.dp)
-                    .scale(iconScale)
+
                     .clip(CircleShape)
                     .background(LeskovPrimaryVariant.copy(alpha = 0.2f))
                     .border(1.dp, LeskovPrimary.copy(alpha = 0.5f), CircleShape),
@@ -138,7 +129,7 @@ fun LeskovOfflineView(
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .heightIn(min = 52.dp)
                     .testTag("retry_button")
             ) {
                 Text(

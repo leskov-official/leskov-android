@@ -12,7 +12,7 @@ val Typography = Typography(
         fontWeight = FontWeight.Bold,
         fontSize = 20.sp,
         lineHeight = 26.sp,
-        letterSpacing = 0.5.sp,
+        letterSpacing = 0.sp,
         color = LeskovOnBackground
     ),
     titleMedium = TextStyle(
@@ -26,7 +26,7 @@ val Typography = Typography(
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
+        fontSize = 16.sp,
         lineHeight = 22.sp,
         letterSpacing = 0.25.sp,
         color = LeskovOnSurface
@@ -34,8 +34,8 @@ val Typography = Typography(
     bodyMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
         letterSpacing = 0.2.sp,
         color = LeskovTextMuted
     ),
@@ -52,7 +52,7 @@ val Typography = Typography(
         fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
         lineHeight = 15.sp,
-        letterSpacing = 0.4.sp,
+        letterSpacing = 0.1.sp,
         color = LeskovTextNavInactive
     )
 )

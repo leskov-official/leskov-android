@@ -13,6 +13,7 @@ object LeskovAudioHandoff {
     private val snapshotJs = """
         (function(){
           try {
+            if(window.__leskovAndroidAudio) return window.__leskovAndroidAudio.snapshot();
             var manager=window.__leskovPlayerManager;
             var active=manager && manager.active;
             var audio=active && active.media && active.media.tagName==='AUDIO' ? active.media :
@@ -45,6 +46,7 @@ object LeskovAudioHandoff {
 
     private val pauseJs = """
         (function(){try{
+          if(window.__leskovAndroidAudio){window.__leskovAndroidAudio.command('pause');return;}
           var p=window.__leskovPlayerManager && window.__leskovPlayerManager.active;
           if(p && p.media && p.media.tagName==='AUDIO') p.pause();
           else Array.from(document.querySelectorAll('audio')).forEach(function(a){if(!a.paused)a.pause();});
@@ -53,8 +55,19 @@ object LeskovAudioHandoff {
 
     /** Do NOT make navigation depend on a playable/accessible stream. */
     fun beforeLeaving(webView: WebView, after: () -> Unit) {
+        var finished = false
+        var timeout: Runnable? = null
+        fun complete() {
+            if (finished) return
+            finished = true
+            timeout?.let { webView.removeCallbacks(it) }
+            after()
+        }
+        timeout = Runnable { complete() }
+        webView.postDelayed(timeout, 1500L)
         try {
-            webView.evaluateJavascript(snapshotJs) { result ->
+            webView.evaluateJavascript(snapshotJs) snapshot@ { result ->
+                if (finished) return@snapshot
                 val snap = try {
                     val decoded = JSONTokener(result ?: "null").nextValue()
                     if (decoded is String) JSONObject(decoded) else null
@@ -63,25 +76,29 @@ object LeskovAudioHandoff {
                 if (url.isNotBlank()) {
                     // Crucial ordering: WebView (Chromium) must RELEASE audio focus before
                     // Media3 requests it. Starting the service first caused Play -> Pause.
-                    webView.evaluateJavascript(pauseJs) {
+                    webView.evaluateJavascript(pauseJs) paused@ {
+                        if (finished) return@paused
                         val accepted = LeskovNativeAudioService.handoff(
                             webView.context,
                             url,
                             snap?.optString("title") ?: "LESKOV",
                             snap?.optString("artist") ?: "Igor Leskov",
                             snap?.optString("artwork") ?: "",
-                            snap?.optLong("position") ?: 0L
+                            snap?.optLong("position") ?: 0L,
+                            snap?.optJSONArray("queue")?.toString(),
+                            snap?.optInt("queueIndex", 0) ?: 0,
+                            snap?.optString("mode", "sequential") ?: "sequential"
                         )
                         if (!accepted) Log.w(TAG, "Native handoff unavailable; continuing navigation")
-                        after()
+                        complete()
                     }
                 } else {
-                    after()
+                    complete()
                 }
             }
         } catch (e: Exception) {
             Log.w(TAG, "Handoff skipped; continuing navigation", e)
-            after()
+            complete()
         }
     }
 }

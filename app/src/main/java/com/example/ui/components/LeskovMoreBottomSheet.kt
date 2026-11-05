@@ -14,6 +14,16 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import com.example.BuildConfig
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Column
@@ -88,28 +98,32 @@ fun LeskovMoreBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = LeskovBackground,
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
-            Text(
-                text = "LESKOV",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = LeskovOnBackground,
-                    letterSpacing = 1.sp
-                )
-            )
-            Text(
-                text = LeskovStrings.sheetTitle(language),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = LeskovTextMuted,
-                    fontSize = 12.sp
-                )
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFF30284F), Color(0xFF161D32))))
+                    .padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("LESKOV", style = MaterialTheme.typography.titleLarge,
+                        color = LeskovOnBackground)
+                    Text(LeskovStrings.sheetTitle(language),
+                        style = MaterialTheme.typography.bodyMedium, color = LeskovTextMuted)
+                }
+                Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.labelMedium,
+                    color = LeskovAccentGlow,
+                    modifier = Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.06f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp))
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
             HorizontalDivider(color = LeskovSurfaceVariant)
@@ -246,6 +260,7 @@ private fun MoreSheetItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 72.dp)
             .scale(scale)
             .clip(RoundedCornerShape(12.dp))
             .clickable(interactionSource = interaction,
@@ -257,12 +272,14 @@ private fun MoreSheetItem(
             .testTag(tag),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = iconTint,
-            modifier = Modifier.size(24.dp)
-        )
+        Box(
+            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp))
+                .background(iconTint.copy(alpha = 0.10f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = iconTint,
+                modifier = Modifier.size(22.dp))
+        }
 
         Spacer(modifier = Modifier.width(16.dp))
 
@@ -282,6 +299,9 @@ private fun MoreSheetItem(
                 )
             )
         }
+        Spacer(Modifier.width(8.dp))
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null,
+            tint = LeskovTextMuted, modifier = Modifier.size(20.dp))
     }
     }
 }

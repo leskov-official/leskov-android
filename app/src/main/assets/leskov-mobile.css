@@ -1,0 +1,77 @@
+/* Android WebView uses CSS pixels. Never scale/zoom the root or the player's coordinates. */
+html[data-leskov-app] {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+    --leskov-app-accent: #b5a8ff;
+    --leskov-app-outline: rgba(181,168,255,.22);
+}
+html[data-leskov-app] body { min-width: 0; }
+html[data-leskov-app] :focus-visible { outline: 2px solid var(--leskov-app-accent); outline-offset: 3px; }
+html[data-leskov-app] :is(button,a,input,textarea,select) { -webkit-tap-highlight-color: rgba(181,168,255,.15); }
+html[data-leskov-app] :is(.leskov-player,.premium-player,[data-premium-player]) {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    border-color: var(--leskov-app-outline);
+    box-shadow: 0 16px 48px rgba(0,0,0,.24);
+}
+html[data-leskov-app] #leskov-native-playback-badge {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 48px;
+    margin-top: 12px;
+    padding: 12px 16px;
+    border: 1px solid var(--leskov-app-outline);
+    border-radius: 16px;
+    background: linear-gradient(120deg,#2b2545,#171d31);
+    color: #f5f3ff;
+    font: inherit;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+    text-align: center;
+}
+@media (max-width: 850px) {
+    html[data-leskov-app] :is(main,.container,.page-container,.content,.profile-main,.feed-container) {
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    html[data-leskov-app] :is(p,h1,h2,h3,.track-title,.track-name,.song-title) { overflow-wrap: anywhere; }
+    html[data-leskov-app] :is(iframe,video,canvas) { max-width: 100%; }
+    html[data-leskov-app] pre { overflow-x: auto; white-space: pre; }
+    html[data-leskov-app] :is(input:not([type=checkbox]):not([type=radio]),textarea,select) {
+        min-height: 48px;
+        border-radius: 12px;
+    }
+    html[data-leskov-app] :is(.leskov-player__btn,.leskov-player__center-btn,.promo-player-btn) {
+        min-width: 44px;
+        min-height: 44px;
+        touch-action: manipulation;
+    }
+    html[data-leskov-app] .leskov-player__seek-track { touch-action: pan-y; }
+    html[data-leskov-app] :is(.leskov-player__title,.leskov-player__artist) { min-width: 0; overflow-wrap: anywhere; }
+    html[data-leskov-app] :is([role=dialog],dialog[open],#premiumPlayerModal) {
+        max-width: calc(100vw - 24px);
+        max-height: calc(100dvh - 24px);
+        overscroll-behavior: contain;
+    }
+}
+@media (max-width: 380px) {
+    html[data-leskov-app] .leskov-player__controls { gap: 6px; flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: no-preference) {
+    html[data-leskov-app] :is(.leskov-player__btn,.leskov-player__center-btn,.promo-player-btn) {
+        transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+    html[data-leskov-app] #leskov-native-playback-badge { animation: leskov-app-reveal .22s ease-out; }
+    @keyframes leskov-app-reveal { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+}
+@media (prefers-reduced-motion: reduce) {
+    html[data-leskov-app] *, html[data-leskov-app] *::before, html[data-leskov-app] *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

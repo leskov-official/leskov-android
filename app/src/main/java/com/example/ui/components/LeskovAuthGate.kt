@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -93,8 +94,8 @@ fun LeskovAuthGate(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
                 .widthIn(max = 370.dp)
+                .fillMaxWidth()
                 .clip(RoundedCornerShape(22.dp))
                 .background(LeskovSurface.copy(alpha = 0.96f))
                 .border(1.dp, LeskovPrimary.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
@@ -188,7 +189,7 @@ fun LeskovAuthGate(
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(46.dp)
+                    .heightIn(min = 52.dp)
                     .scale(loginScale)
                     .testTag("auth_gate_login_button")
             ) {
@@ -214,7 +215,7 @@ fun LeskovAuthGate(
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(46.dp)
+                    .heightIn(min = 52.dp)
                     .scale(registerScale)
                     .testTag("auth_gate_register_button")
             ) {
@@ -242,14 +243,15 @@ fun LeskovAuthGate(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Footer legal links
+            // Both links wrap within their own half at large accessibility font sizes.
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(
                     onClick = onOpenTerms,
-                    modifier = Modifier.testTag("auth_gate_terms_link")
+                    modifier = Modifier.weight(1f).testTag("auth_gate_terms_link")
                 ) {
                     Text(
                         text = LeskovStrings.terms(language),
@@ -263,7 +265,7 @@ fun LeskovAuthGate(
                 Text(text = "·", color = LeskovTextMuted)
                 TextButton(
                     onClick = onOpenPrivacy,
-                    modifier = Modifier.testTag("auth_gate_privacy_link")
+                    modifier = Modifier.weight(1f).testTag("auth_gate_privacy_link")
                 ) {
                     Text(
                         text = LeskovStrings.privacy(language),
