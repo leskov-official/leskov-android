@@ -50,6 +50,7 @@ class CompactChromeTest {
                 }
             }
         }
-        assertTrue(compose.onNodeWithTag("sheet_settings_item").assertIsDisplayed().getUnclippedBoundsInRoot().let { it.bottom - it.top <= 84.dp })
+        val bounds = compose.onNodeWithTag("sheet_settings_item").assertIsDisplayed().getUnclippedBoundsInRoot()
+        assertTrue("Settings row: $bounds", bounds.bottom - bounds.top <= 84.dp)
     }
 }

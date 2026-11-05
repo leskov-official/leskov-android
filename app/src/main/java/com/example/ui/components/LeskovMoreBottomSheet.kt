@@ -101,6 +101,8 @@ fun LeskovMoreBottomSheet(
         containerColor = LeskovBackground,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
+        // A modal has its own Android window and density provider.
+        LeskovCompactContent {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -232,6 +234,7 @@ fun LeskovMoreBottomSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
     }
     }
 }
