@@ -22,6 +22,20 @@ function app_mobile_push_delivery_ready(): bool {
     catch (Throwable $e) { return false; }
 }
 
+/** Keep valid first-party absolute links intact; normalize relative site routes once. */
+function app_mobile_push_target_url(string $url): string {
+    $url = trim($url);
+    if ($url === '') return 'https://lesv.online/notifications.php';
+    $parts = parse_url($url);
+    if ($parts === false) return 'https://lesv.online/notifications.php';
+    if (isset($parts['scheme']) || isset($parts['host'])) {
+        return ($parts['scheme'] ?? '') === 'https' && ($parts['host'] ?? '') === 'lesv.online' &&
+            !isset($parts['user']) && !isset($parts['pass']) && (!isset($parts['port']) || $parts['port'] === 443)
+            ? $url : 'https://lesv.online/notifications.php';
+    }
+    return 'https://lesv.online/' . ltrim($url, '/');
+}
+
 function app_mobile_push_schema(): void {
     db()->exec('CREATE TABLE IF NOT EXISTS mobile_push_devices (
         token_hash CHAR(64) CHARACTER SET ascii PRIMARY KEY,

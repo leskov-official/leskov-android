@@ -11,7 +11,6 @@ import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -68,6 +67,7 @@ import com.example.web.WebNavigation
 import com.example.model.AppLanguage
 import com.example.model.LeskovStrings
 import com.example.model.LeskovConstants
+import com.example.ui.components.LeskovSnackbar
 import com.example.ui.components.LeskovAuthGate
 import com.example.ui.components.LeskovBottomBar
 import com.example.ui.components.LeskovDeleteCookiesDialog
@@ -108,9 +108,11 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         )
-        restoredWebState = savedInstanceState?.getBundle("web_state")
+        val incomingUrl = extractInternalUrl(intent)
+        restoredWebState = if (incomingUrl == null) savedInstanceState?.getBundle("web_state") else null
+        if (incomingUrl != null) setIntent(Intent(intent).apply { data = null })
 
-        val initialUrl = extractInternalUrl(intent) ?: LeskovConstants.buildUrl(LeskovConstants.HOME_PATH, AppLanguage.RU)
+        val initialUrl = incomingUrl ?: LeskovConstants.buildUrl(LeskovConstants.HOME_PATH, AppLanguage.RU)
 
         setContent {
             MyApplicationTheme {
@@ -136,7 +138,7 @@ class MainActivity : ComponentActivity() {
                         } catch (_: Exception) {
                             pendingFilePathCallback?.onReceiveValue(null)
                             pendingFilePathCallback = null
-                            Toast.makeText(this@MainActivity, "Выбор файлов недоступен", Toast.LENGTH_SHORT).show()
+                            viewModel.showMessage("Выбор файлов недоступен")
                             false
                         }
                     },
@@ -220,8 +222,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        setIntent(intent)
         val incomingUrl = extractInternalUrl(intent)
+        setIntent(Intent(intent).apply { data = null })
         if (incomingUrl != null) {
             navigatePreservingMusic(incomingUrl)
         }
@@ -233,6 +235,14 @@ class MainActivity : ComponentActivity() {
             if (page.saveState(state) != null) outState.putBundle("web_state", state)
         }
         super.onSaveInstanceState(outState)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        webViewRef?.let { page ->
+            val state = viewModel.uiState.value
+            com.example.push.FcmTokenManager.publishCurrentState(this, page, state.currentUserId, state.language)
+        }
     }
 
     override fun onPause() {
@@ -319,8 +329,8 @@ fun LeskovApp(
         com.example.push.FcmTokenManager.refreshDeviceToken(context)
     }
 
-    // Pending integration: requires authenticated server endpoint (see docs).
-    LaunchedEffect(uiState.currentUserId, uiState.language) {
+    // Refresh the page's Push status after full and persistent navigation.
+    LaunchedEffect(uiState.currentUserId, uiState.language, uiState.currentUrl) {
         if (uiState.currentUserId > 0) {
             com.example.push.FcmTokenManager.syncTokenWithServer(context, getWebView(), uiState.currentUserId, uiState.language)
         }
@@ -349,6 +359,7 @@ fun LeskovApp(
 
     LaunchedEffect(uiState.statusMessage) {
         uiState.statusMessage?.let {
+            snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
         }
@@ -363,7 +374,7 @@ fun LeskovApp(
             .fillMaxSize()
             .background(LeskovBackground),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) { data -> LeskovSnackbar(data) } },
         topBar = { /* Clean layout - no heavy header bar */ },
         bottomBar = {
             // Keep form fields visible when the Android keyboard is open.
@@ -499,6 +510,7 @@ fun LeskovApp(
                     viewModel.clearAppCache(getWebView())
                 },
                 onEnableNotifications = requestNotifications,
+                onShowMessage = viewModel::showMessage,
                 onOpenDeleteCookiesConfirm = {
                     showDeleteCookiesDialog = true
                 }

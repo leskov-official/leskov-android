@@ -1,0 +1,11 @@
+--- a/includes/notifications.php
++++ b/includes/notifications.php
+@@ -573,7 +573,7 @@
+     if(in_array($type,['group_post','friend_birthday'],true)){ $d=app_community_notice_details($userId,$type,(int)$entityId,$lang);if(!$d)return;$body=$d['text'];$url=$d['url']; }
+     $mobileType = match ($kind) { 'message' => 'message', 'group_post' => 'post', 'site', 'premium_changed', 'premium_expiring' => 'system', default => 'social' };
+     app_mobile_push_send($userId, ['type'=>$mobileType,'title'=>$title,'body'=>$body,
+-        'target_url'=>'https://lesv.online/' . ltrim($url, '/'), 'collapse_id'=>$type.'_'.(string)$entityId]);
++        'target_url'=>app_mobile_push_target_url($url), 'collapse_id'=>$type.'_'.(string)$entityId]);
+     if (app_push_subscriptions_for_user($userId)) app_send_web_push($userId, $title, $body, $url, ['tag' => $type, 'lang' => $lang]);
+ }
+ 

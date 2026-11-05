@@ -109,3 +109,77 @@ html[data-leskov-app] #leskov-native-playback-badge { display: none !important; 
         transition-duration: .01ms !important; scroll-behavior: auto !important;
     }
 }
+
+/* 3.4.2: fit the actual profile/feed/search components instead of scaling the root. */
+@media (max-width: 850px) {
+    html[data-leskov-app] .container { width: 100% !important; min-width: 0 !important; padding-inline: 10px !important; box-sizing: border-box !important; }
+    html[data-leskov-app] .profile-layout { grid-template-columns: minmax(0,1fr) !important; width: 100% !important; margin: 12px auto !important; gap: 12px !important; }
+    html[data-leskov-app] :is(.profile-sidebar,.profile-main,.profile-layout-extended,.profile-cover-info,.profile-cover-panel,.feed-stack,.feed-card,.feed-content,.feed-author-copy) {
+        min-width: 0 !important; max-width: 100% !important; box-sizing: border-box !important;
+    }
+    html[data-leskov-app] :is(.profile-sidebar,.profile-main > .surface-card,.feed-card) { padding: 14px !important; }
+    html[data-leskov-app] :is(.profile-cover-info,.profile-cover-panel,.profile-mobile-cover-info) { padding: 14px !important; }
+    html[data-leskov-app] :is(.profile-cover-info p,.profile-cover-panel p,.profile-mobile-cover-info p,.feed-content) { font-size: 14px !important; line-height: 1.5 !important; overflow-wrap: anywhere; }
+    html[data-leskov-app] .feed-head { flex-wrap: wrap !important; gap: 10px !important; }
+    html[data-leskov-app] .feed-author { min-width: 0 !important; max-width: 100%; }
+    html[data-leskov-app] .feed-author img { width: 36px !important; height: 36px !important; object-fit: cover; }
+    html[data-leskov-app] :is(.profile-cover-name-row,.inline-badged-name,.feed-actions-row) { min-width: 0; max-width: 100%; flex-wrap: wrap; }
+    html[data-leskov-app] .site-header .brand { min-width: 0 !important; max-width: 100%; gap: 8px !important; }
+    html[data-leskov-app] .site-header .brand img {
+        flex: 0 0 36px !important; width: 36px !important; height: 36px !important;
+        min-width: 36px !important; min-height: 36px !important; max-width: 36px !important; max-height: 36px !important;
+        aspect-ratio: 1 !important; object-fit: contain !important; padding: 0 !important; border-radius: 50% !important;
+    }
+    html[data-leskov-app] .site-header .brand-copy { min-width: 0 !important; }
+    html[data-leskov-app] :is(.site-header__search-wrap,.header-middle-slot,.leskov-search-bar) { min-width: 0 !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }
+    html[data-leskov-app] .leskov-search-bar { display: grid !important; grid-template-columns: minmax(0,1fr) !important; gap: 6px !important; }
+    html[data-leskov-app] .leskov-search-bar__form {
+        display: grid !important; grid-template-columns: 20px minmax(0,1fr) auto !important;
+        width: 100% !important; min-width: 0 !important; max-width: 100% !important;
+        box-sizing: border-box !important; height: 42px !important; padding: 4px 5px 4px 10px !important; gap: 5px !important;
+    }
+    html[data-leskov-app] .leskov-search-bar__icon { width: 20px !important; height: 20px !important; }
+    html[data-leskov-app] input.leskov-search-bar__input { width: 100% !important; min-width: 0 !important; max-width: 100% !important; font-size: 14px !important; padding: 0 !important; }
+    html[data-leskov-app] .leskov-search-bar__submit { min-width: 62px !important; max-width: 88px !important; width: auto !important; min-height: 32px !important; height: 32px !important; padding: 6px 12px !important; font-size: 13px !important; }
+    html[data-leskov-app] .leskov-search-bar__discover { min-width: 0 !important; width: 100% !important; min-height: 34px !important; font-size: 13px !important; padding: 7px 10px !important; box-sizing: border-box !important; }
+    html[data-leskov-app] .leskov-search-bar__dropdown { left: 0 !important; right: 0 !important; width: 100% !important; min-width: 0 !important; max-width: 100% !important; box-sizing: border-box; }
+    html[data-leskov-app] #headerPlayerPanel .header-player-modes {
+        display: grid !important; grid-template-columns: repeat(3,minmax(0,1fr)) !important;
+        width: 100% !important; min-width: 0 !important; padding: 4px !important; gap: 4px !important;
+        border-radius: 14px !important; box-sizing: border-box !important;
+    }
+    html[data-leskov-app] #headerPlayerPanel .header-player-mode {
+        display: flex !important; justify-content: center !important; align-items: center !important;
+        min-width: 0 !important; width: 100% !important; min-height: 36px !important; height: auto !important;
+        margin: 0 !important; padding: 6px 3px !important; border-radius: 10px !important;
+        font-size: 11px !important; line-height: 1.25 !important; white-space: normal !important; box-sizing: border-box !important;
+    }
+    html[data-leskov-app] [data-notifications-push-enable].is-enabled { background: linear-gradient(115deg,#2863f0,#0b989d) !important; color: white !important; border-color: transparent !important; }
+    html[data-leskov-app] :is(.sticker-picker,.sticker-category-modal__dialog,.sticker-pack-scroller,.sticker-pack-grid--modal) { scrollbar-width: none !important; -ms-overflow-style: none; }
+    html[data-leskov-app] :is(.sticker-picker,.sticker-category-modal__dialog,.sticker-pack-scroller,.sticker-pack-grid--modal)::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+
+    /* One scroll owner per conversation; header and composer remain in view. */
+    html[data-leskov-app] body.messages-page { height: 100dvh !important; overflow: hidden !important; }
+    html[data-leskov-app] .messages-page .messenger-layout { display: block !important; width: 100% !important; height: 100dvh !important; max-height: 100dvh !important; margin: 0 !important; padding: 8px !important; box-sizing: border-box !important; }
+    html[data-leskov-app] .messages-page.is-leskov-thread .messenger-sidebar { display: none !important; }
+    html[data-leskov-app] .messages-page.is-leskov-thread .messenger-main { display: flex !important; flex-direction: column !important; height: 100% !important; min-height: 0 !important; padding: 12px !important; overflow: hidden !important; box-sizing: border-box !important; gap: 8px !important; }
+    html[data-leskov-app] #messageThread { flex: 1 1 0 !important; min-height: 0 !important; max-height: none !important; margin: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; overscroll-behavior: contain; overflow-anchor: auto; scroll-behavior: auto !important; }
+    html[data-leskov-app] .messages-page :is(.messenger-head,#messageComposer,#typingIndicator) { flex-shrink: 0 !important; }
+    html[data-leskov-app] .messages-page .messenger-head { flex-wrap: wrap; gap: 8px; }
+    html[data-leskov-app] #messageComposer { position: relative !important; bottom: auto !important; margin: 0 !important; padding-top: 8px !important; }
+    html[data-leskov-app] #leskov-dialogs-back { display: block; color: var(--accent,#2863f0); text-decoration: none; font-size: 13px; padding: 4px 0; }
+    html[data-leskov-app] .messages-page.is-leskov-dialogs .messenger-main { display: none !important; }
+    html[data-leskov-app] .messages-page.is-leskov-dialogs .messenger-sidebar { display: flex !important; flex-direction: column !important; height: 100% !important; min-height: 0 !important; position: static !important; padding: 12px !important; overflow: hidden !important; box-sizing: border-box !important; }
+    html[data-leskov-app] .messages-page [data-messenger-dialogs] { flex: 1 1 0 !important; min-height: 0 !important; max-height: none !important; overflow-y: auto !important; overscroll-behavior: contain; }
+}
+@media (max-width: 850px) {
+    html[data-leskov-app] :is(.toast-host,.toast-notice,.header-notice-dropdown) { max-width: calc(100vw - 24px) !important; box-sizing: border-box !important; }
+    html[data-leskov-app] .toast-notice { border-radius: 16px !important; }
+    html[data-leskov-app] .toast-notice strong { font-size: 14px !important; line-height: 1.3 !important; }
+    html[data-leskov-app] .toast-notice small { font-size: 12px !important; line-height: 1.4 !important; }
+    html[data-leskov-app] .toast-notice img { width: 32px !important; height: 32px !important; object-fit: contain !important; }
+}
+@media (max-width: 850px) {
+    html[data-leskov-app] :is(.sticker-picker,.sticker-category-modal__dialog) * { scrollbar-width: none !important; }
+    html[data-leskov-app] :is(.sticker-picker,.sticker-category-modal__dialog) *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+}

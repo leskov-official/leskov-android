@@ -10,7 +10,7 @@ if (!$user || !empty($user['is_blocked']) || !empty($user['deactivated_at']) || 
 }
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method === 'GET' && ($_GET['action'] ?? '') === 'csrf') {
-    echo json_encode(['ok'=>true,'csrf'=>cms_csrf_token(),'delivery_ready'=>app_mobile_push_delivery_ready()]); exit;
+    echo json_encode(['ok'=>true,'csrf'=>cms_csrf_token(),'user_id'=>(int)$user['id'],'delivery_ready'=>app_mobile_push_delivery_ready()]); exit;
 }
 if ($method !== 'POST') { http_response_code(405); header('Allow: GET, POST'); echo json_encode(['ok'=>false]); exit; }
 cms_verify_csrf();

@@ -46,7 +46,12 @@ object FcmTokenManager {
     const val CHANNEL_SYSTEM = "leskov_system_channel"
 
 
+    fun savedLanguage(context: Context): AppLanguage = AppLanguage.fromCode(
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString("notification_language", "ru"))
+
     fun createNotificationChannels(context: Context, language: AppLanguage = AppLanguage.RU) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .putString("notification_language", language.code).apply()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
 
@@ -163,10 +168,7 @@ object FcmTokenManager {
     fun syncTokenWithServer(context: Context, webView: WebView?, userId: Int, language: AppLanguage,
                             force: Boolean = false, onResult: (String) -> Unit = {}) {
         fun report(status: String) {
-            val text = com.example.model.LeskovStrings.notificationStatus(language, status)
-            webView?.post {
-                webView.evaluateJavascript("window.__leskovAppShell && window.__leskovAppShell.setPushStatus(${JSONObject.quote(text)});", null)
-            }
+            publishState(context, webView, userId, language, status)
             onResult(status)
         }
         if (!isFirebaseConfigured(context)) { report("firebase_missing"); return }
@@ -175,6 +177,7 @@ object FcmTokenManager {
         if (!androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER)) {
             report("webview_unsupported"); return
         }
+        if (force) report("connecting")
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
             saveToken(context, token)
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -200,6 +203,31 @@ object FcmTokenManager {
                 }
             }
         }.addOnFailureListener { Log.w(TAG, "Unable to refresh FCM token", it); report("token_failed") }
+    }
+
+    fun publishCurrentState(context: Context, webView: WebView, userId: Int, language: AppLanguage) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val marker = prefs.getString(KEY_LAST_SYNCED_USER, "").orEmpty()
+        val token = getSavedToken(context)
+        val status = when {
+            userId <= 0 -> "login_required"
+            !isFirebaseConfigured(context) -> "firebase_missing"
+            !androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled() -> "permission_denied"
+            token != null && marker == "$userId:${token.hashCode()}" && prefs.getBoolean("delivery_verified", false) -> "ready"
+            else -> "unknown"
+        }
+        publishState(context, webView, userId, language, status)
+    }
+
+    private fun publishState(context: Context, webView: WebView?, userId: Int, language: AppLanguage, status: String) {
+        val allowed = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+        val effective = if (status == "ready" && !allowed) "permission_denied" else status
+        val payload = JSONObject().put("status", effective).put("userId", userId)
+            .put("enabled", effective == "ready")
+            .put("message", if (effective == "unknown") "" else com.example.model.LeskovStrings.notificationStatus(language, effective))
+        webView?.post {
+            webView.evaluateJavascript("window.__leskovAppShell && window.__leskovAppShell.setPushStatus($payload);", null)
+        }
     }
 
     private fun firstPartyRequest(webView: WebView, action: String, token: String,

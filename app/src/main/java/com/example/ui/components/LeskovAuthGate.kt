@@ -85,6 +85,7 @@ fun LeskovAuthGate(
     val registerScale by animateFloatAsState(if (registerPressed) 0.975f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessMedium), label = "registerPress")
 
+    LeskovCompactContent {
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -107,7 +108,7 @@ fun LeskovAuthGate(
             // Original circular artwork logo
             Box(
                 modifier = Modifier
-                    .size(66.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .border(2.dp, LeskovPrimary.copy(alpha = 0.5f), CircleShape),
                 contentAlignment = Alignment.Center
@@ -115,11 +116,11 @@ fun LeskovAuthGate(
                 Image(
                     painter = painterResource(id = R.drawable.leskov_logo),
                     contentDescription = "LESKOV",
-                    modifier = Modifier.size(66.dp)
+                    modifier = Modifier.size(48.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Subtitle brand badge
             Row(
@@ -155,9 +156,9 @@ fun LeskovAuthGate(
                     text = title,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
+                        fontSize = 16.sp,
                         color = LeskovOnBackground,
-                        lineHeight = 22.sp
+                        lineHeight = 21.sp
                     ),
                     textAlign = TextAlign.Center
                 )
@@ -176,7 +177,7 @@ fun LeskovAuthGate(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Primary Login button
             Button(
@@ -189,7 +190,7 @@ fun LeskovAuthGate(
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 52.dp)
+                    .heightIn(min = 44.dp)
                     .scale(loginScale)
                     .testTag("auth_gate_login_button")
             ) {
@@ -215,7 +216,7 @@ fun LeskovAuthGate(
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 52.dp)
+                    .heightIn(min = 44.dp)
                     .scale(registerScale)
                     .testTag("auth_gate_register_button")
             ) {
@@ -228,7 +229,7 @@ fun LeskovAuthGate(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Guest clarification
             Text(
@@ -291,5 +292,6 @@ fun LeskovAuthGate(
                 )
             }
         }
+    }
     }
 }

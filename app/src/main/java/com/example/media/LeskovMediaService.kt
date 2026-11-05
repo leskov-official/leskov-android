@@ -28,6 +28,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.example.push.LeskovNotificationBrand
 import com.example.MainActivity
 import com.example.R
 
@@ -300,9 +301,7 @@ class LeskovMediaService : Service() {
             .putString(MediaMetadata.METADATA_KEY_ARTIST, currentArtist)
             .putString(MediaMetadata.METADATA_KEY_ALBUM, "LESKOV")
         if (playbackDurationMs > 0L) metadata.putLong(MediaMetadata.METADATA_KEY_DURATION, playbackDurationMs)
-        val image = artworkBitmap ?: try {
-            BitmapFactory.decodeResource(resources, R.drawable.leskov_logo)
-        } catch (_: Exception) { null }
+        val image = artworkBitmap ?: LeskovNotificationBrand.logo(this)
         if (image != null) metadata.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, image)
         s.setMetadata(metadata.build())
     }
@@ -357,11 +356,7 @@ class LeskovMediaService : Service() {
         val playPauseIcon = if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
         val playPauseTitle = if (playing) "Пауза" else "Воспроизведение"
 
-        val largeIconBitmap = try {
-            BitmapFactory.decodeResource(resources, R.drawable.leskov_logo)
-        } catch (_: Exception) {
-            null
-        }
+        val largeIconBitmap = LeskovNotificationBrand.logo(this)
 
         val previousPendingIntent = PendingIntent.getService(
             this, 4, Intent(this, LeskovMediaService::class.java).apply { action = ACTION_USER_PREVIOUS },
@@ -393,8 +388,7 @@ class LeskovMediaService : Service() {
             .setMediaSession(mediaSession?.sessionToken)
             .setShowActionsInCompactView(toggleIndex))
 
-        val image = artworkBitmap ?: largeIconBitmap
-        if (image != null) builder.setLargeIcon(image)
+        builder.setLargeIcon(largeIconBitmap)
         return builder.build()
     }
 

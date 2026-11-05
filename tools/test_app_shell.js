@@ -6,9 +6,9 @@ const source=fs.readFileSync(path.join(__dirname,'../app/src/main/assets/leskov-
 let checks=0;
 function check(actual,expected){assert.deepEqual(actual,expected);checks++;}
 function fixture(origin='https://lesv.online'){
- const events={},states=[],push=[],viewport={content:''},button={disabled:true},status={textContent:'Web Push unsupported'};
+ const events={},states=[],push=[],viewport={content:''},button={disabled:true,setAttribute(){},classList:{toggle(){}}},status={textContent:'Web Push unsupported'};
  let active=false,accepted=true,calls=0;
- const document={documentElement:{lang:'ru',setAttribute(){}},head:{},body:{getAttribute:()=> '42'},
+ const document={documentElement:{lang:'ru',setAttribute(){}},head:{},body:{getAttribute:()=> '42',hasAttribute:()=>true,classList:{contains:()=>false}},
   querySelector(selector){if(selector==='meta[name="viewport"]')return viewport; if(active&&selector==='#callOverlay:not([hidden])')return {};return null;},
   querySelectorAll(selector){if(selector==='[data-notifications-push-enable]')return [button];if(selector==='[data-notifications-push-status]')return [status];return [];},
   getElementById:()=>null,addEventListener:(name,fn)=>{events[name]=fn;}};
@@ -34,5 +34,12 @@ check(f.status.textContent,'Registered');check(f.button.disabled,false);
 let prevented=0;
 f.events.click({target:{closest:()=>f.button},preventDefault(){prevented++;},stopImmediatePropagation(){prevented++;}});
 check(f.push,['request']);check(prevented,2);
+f.api.setPushStatus({enabled:true,status:'ready',message:'Enabled'});
+check(f.button.disabled,false);check(f.button.textContent,'✓ Push-уведомления включены');
+f.events.click({target:{closest:()=>f.button},preventDefault(){},stopImmediatePropagation(){}});
+check(f.push,['request','settings']);
+f.api.setPushStatus({enabled:false,status:'connecting',message:'Connecting'});check(f.button.disabled,true);
+f.api.setPushStatus({enabled:false,status:'permission_denied',message:'Disabled'});check(f.button.disabled,false);
+check(f.button.textContent,'Включить Push на этом устройстве');
 check(fixture('https://evil.test').api,undefined);
 console.log(`PASS app shell: ${checks} assertions (same-player navigation, call guard, FCM button, status, origin)`);

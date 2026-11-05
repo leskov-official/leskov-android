@@ -31,7 +31,6 @@ import android.webkit.RenderProcessGoneDetail
 import android.app.Activity
 import android.os.Handler
 import android.os.Looper
-import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -67,6 +66,7 @@ fun LeskovWebView(
 ) {
     val context = LocalContext.current
     val audioBridgeScript = remember { context.assets.open("leskov-player-bridge.js").bufferedReader().use { it.readText() } }
+    val trackActionsScript = remember { context.assets.open("leskov-track-actions.js").bufferedReader().use { it.readText() } }
     val appShellScript = remember { context.assets.open("leskov-app-shell.js").bufferedReader().use { it.readText() } }
     val mobileStyle = remember { context.assets.open("leskov-mobile.css").bufferedReader().use { it.readText() } }
     val layoutScript = remember(mobileStyle) {
@@ -120,7 +120,7 @@ fun LeskovWebView(
 
             // Install before site scripts so an early Premium autoplay cannot be missed.
             if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-                WebViewCompat.addDocumentStartJavaScript(this, audioBridgeScript + "\n" + layoutScript + "\n" + appShellScript,
+                WebViewCompat.addDocumentStartJavaScript(this, audioBridgeScript + "\n" + layoutScript + "\n" + appShellScript + "\n" + trackActionsScript,
                     setOf("https://${LeskovConstants.HOST}"))
             }
 
@@ -175,8 +175,13 @@ fun LeskovWebView(
                     this, "LeskovNativePush", setOf("https://${LeskovConstants.HOST}")
                 ) { _, message, origin, isMainFrame, _ ->
                     if (isMainFrame && origin.scheme == "https" && origin.host == LeskovConstants.HOST &&
-                        message.data == "request") {
-                        this@apply.post { onNativePushRequested() }
+                        message.data in setOf("request", "settings")) {
+                        this@apply.post {
+                            if (message.data == "settings") {
+                                runCatching { context.startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)) }
+                            } else onNativePushRequested()
+                        }
                     }
                 }
             }
@@ -188,12 +193,20 @@ fun LeskovWebView(
                     if (!isMainFrame || origin.scheme != "https" || origin.host != LeskovConstants.HOST) return@addWebMessageListener
                     runCatching {
                         val state = JSONObject(message.data.orEmpty())
+                        if (state.optString("type") == "notice") {
+                            viewModel.showMessage(state.optString("message").take(500))
+                            return@runCatching
+                        }
                         val url = state.optString("url")
                         if (!WebNavigation.isTrustedUri(Uri.parse(url))) return@runCatching
                         viewModel.onUrlChanged(url)
                         viewModel.onLanguageDetected(state.optString("language"))
                         val userId = state.optInt("userId", -1)
-                        if (userId >= 0) viewModel.onUserSessionDetected(userId)
+                        if (userId >= 0) {
+                            viewModel.onUserSessionDetected(userId)
+                            FcmTokenManager.publishCurrentState(context, this@apply, userId,
+                                com.example.model.AppLanguage.fromCode(state.optString("language")))
+                        }
                         viewModel.onCallVisibilityChanged(state.optBoolean("callActive"))
                         viewModel.onProgressChanged(100)
                         viewModel.setCanGoBack(this@apply.canGoBack())
@@ -221,7 +234,7 @@ fun LeskovWebView(
 
                     // External URLs open safely via system intent
                     if (request.isForMainFrame) {
-                        openExternalUri(context, uri)
+                        openExternalUri(context, uri, viewModel::showMessage)
                     }
                     return true
                 }
@@ -232,6 +245,7 @@ fun LeskovWebView(
                         view.evaluateJavascript(layoutScript, null)
                         view.evaluateJavascript(audioBridgeScript, null)
                         view.evaluateJavascript(appShellScript, null)
+                        view.evaluateJavascript(trackActionsScript, null)
                     }
                 }
 
@@ -339,7 +353,7 @@ fun LeskovWebView(
             }
 
             setDownloadListener(DownloadListener { url, userAgent, contentDisposition, mimetype, _ ->
-                handleDownload(context, url, userAgent, contentDisposition, mimetype)
+                handleDownload(context, url, userAgent, contentDisposition, mimetype, viewModel::showMessage)
             })
 
             onWebViewCreated(this)
@@ -426,6 +440,8 @@ private fun applyMobileAppAdaptations(webView: WebView, viewModel: LeskovViewMod
 
     val jsAppShell = webView.context.assets.open("leskov-app-shell.js").bufferedReader().use { it.readText() }
     webView.evaluateJavascript(jsAppShell, null)
+    val jsTrackActions = webView.context.assets.open("leskov-track-actions.js").bufferedReader().use { it.readText() }
+    webView.evaluateJavascript(jsTrackActions, null)
     webView.evaluateJavascript("window.__leskovAppShell && window.__leskovAppShell.refresh();", null)
 }
 
@@ -439,7 +455,7 @@ private fun isInternalUri(uri: Uri?): Boolean {
             uri.userInfo == null && (uri.port == -1 || uri.port == 443)
 }
 
-private fun openExternalUri(context: Context, uri: Uri) {
+private fun openExternalUri(context: Context, uri: Uri, onMessage: (String) -> Unit) {
     val scheme = uri.scheme?.lowercase() ?: return
     if (scheme !in setOf("http", "https", "mailto", "tel", "sms", "geo", "market")) return
 
@@ -449,7 +465,7 @@ private fun openExternalUri(context: Context, uri: Uri) {
         }
         context.startActivity(intent)
     } catch (_: ActivityNotFoundException) {
-        Toast.makeText(context, "Не удалось открыть внешнюю ссылку", Toast.LENGTH_SHORT).show()
+        onMessage("Не удалось открыть внешнюю ссылку")
     }
 }
 
@@ -458,7 +474,8 @@ private fun handleDownload(
     url: String,
     userAgent: String,
     contentDisposition: String,
-    mimetype: String
+    mimetype: String,
+    onMessage: (String) -> Unit
 ) {
     val uri = try {
         Uri.parse(url)
@@ -467,7 +484,7 @@ private fun handleDownload(
     } ?: return
 
     if (!isInternalUri(uri)) {
-        openExternalUri(context, uri)
+        openExternalUri(context, uri, onMessage)
         return
     }
 
@@ -487,8 +504,8 @@ private fun handleDownload(
 
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
         downloadManager?.enqueue(request)
-        Toast.makeText(context, "Загрузка началась: $filename", Toast.LENGTH_SHORT).show()
+        onMessage("Загрузка началась: $filename")
     } catch (_: Exception) {
-        Toast.makeText(context, "Не удалось загрузить файл", Toast.LENGTH_SHORT).show()
+        onMessage("Не удалось загрузить файл")
     }
 }

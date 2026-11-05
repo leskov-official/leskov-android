@@ -1,7 +1,6 @@
 package com.example.ui.components
 
 import android.webkit.WebView
-import android.widget.Toast
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -62,7 +61,7 @@ fun LeskovDeleteCookiesDialog(
                             webView?.clearHistory()
                             webView?.loadUrl(logoutUrl)
                             viewModel.onUserSessionDetected(0)
-                            Toast.makeText(context, LeskovStrings.signedOutToast(language), Toast.LENGTH_SHORT).show()
+                            viewModel.showMessage(LeskovStrings.signedOutToast(language))
                         }
                     } catch (_: Exception) {
                         webView?.loadUrl("${LeskovConstants.BASE_URL}auth.php?logout=1&lang=${language.code}")

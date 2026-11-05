@@ -4,14 +4,10 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.graphics.BitmapFactory
-import android.net.Uri
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.R
-import com.example.model.AppLanguage
-import com.example.model.LeskovConstants
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -29,7 +25,7 @@ class LeskovFirebaseMessagingService : FirebaseMessagingService() {
         Log.d(TAG, "FCM message received from: ${remoteMessage.from}")
 
         // Ensure notification channels are registered
-        FcmTokenManager.createNotificationChannels(this, AppLanguage.RU)
+        FcmTokenManager.createNotificationChannels(this, FcmTokenManager.savedLanguage(this))
 
         val data = remoteMessage.data
         val notification = remoteMessage.notification
@@ -53,8 +49,8 @@ class LeskovFirebaseMessagingService : FirebaseMessagingService() {
 
 
         val type = data["type"] ?: "system"
-        val title = data["title"] ?: notification?.title ?: "LESKOV"
-        val body = data["body"] ?: notification?.body ?: ""
+        val title = (data["title"] ?: notification?.title ?: "LESKOV").take(160)
+        val body = (data["body"] ?: notification?.body ?: "").take(3000)
         val targetUrl = data["target_url"] ?: data["url"]
         val collapseKey = data["collapse_id"] ?: remoteMessage.collapseKey
 
@@ -72,35 +68,16 @@ class LeskovFirebaseMessagingService : FirebaseMessagingService() {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
 
         // Validate and sanitize internal URL
-        val targetUri = parseSafeInternalUri(rawUrl)
-
+        val targetUri = LeskovNotificationPolicy.target(type, rawUrl, extraData)
+        val notificationId = collapseKey?.hashCode() ?: (type + ":" + targetUri.toString() + ":" + title).hashCode()
         val clickIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            if (targetUri != null) {
-                this.data = targetUri
-            }
+            this.data = targetUri
         }
-
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            System.currentTimeMillis().toInt(),
-            clickIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val largeIconBitmap = try {
-            BitmapFactory.decodeResource(resources, R.drawable.leskov_logo)
-        } catch (_: Exception) {
-            null
-        }
-
-        val channelId = when (type.lowercase()) {
-            "call", "incoming_call" -> FcmTokenManager.CHANNEL_CALLS
-            "message", "chat", "direct" -> FcmTokenManager.CHANNEL_MESSAGES
-            "social", "reaction", "like", "friend" -> FcmTokenManager.CHANNEL_SOCIAL
-            "post", "release", "music" -> FcmTokenManager.CHANNEL_POSTS
-            else -> FcmTokenManager.CHANNEL_SYSTEM
-        }
+        val pendingIntent = PendingIntent.getActivity(this, notificationId, clickIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val largeIconBitmap = LeskovNotificationBrand.logo(this)
+        val channelId = LeskovNotificationPolicy.channel(type)
 
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
             // CRITICAL: Monochrome white silhouette vector drawable on transparent background
@@ -109,15 +86,15 @@ class LeskovFirebaseMessagingService : FirebaseMessagingService() {
             .setContentText(body)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .setColor(0xFF9B8CFB.toInt()) // LESKOV Accent glow brand tint
+            .setColor(0xFF527FF5.toInt()) // LESKOV Accent glow brand tint
 
         if (largeIconBitmap != null) {
             notificationBuilder.setLargeIcon(largeIconBitmap)
         }
 
-        if (collapseKey != null) {
-            notificationBuilder.setGroup(collapseKey)
-        }
+        notificationBuilder.setSubText(nm.getNotificationChannel(channelId)?.name)
+        notificationBuilder.setShowWhen(true).setWhen(System.currentTimeMillis())
+            .setOnlyAlertOnce(true).setStyle(NotificationCompat.BigTextStyle().bigText(body))
 
         when (channelId) {
             FcmTokenManager.CHANNEL_CALLS -> {
@@ -153,30 +130,10 @@ class LeskovFirebaseMessagingService : FirebaseMessagingService() {
             }
         }
 
-        val notificationId = collapseKey?.hashCode() ?: System.currentTimeMillis().toInt()
         try {
             nm.notify(notificationId, notificationBuilder.build())
         } catch (e: SecurityException) {
             Log.w(TAG, "Notifications are disabled or permission not granted", e)
-        }
-    }
-
-    private fun parseSafeInternalUri(rawUrl: String?): Uri? {
-        if (rawUrl.isNullOrBlank()) return null
-        return try {
-            val uri = Uri.parse(rawUrl)
-            val scheme = uri.scheme
-            val host = uri.host
-            if ("https".equals(scheme, ignoreCase = true) &&
-                host.equals(LeskovConstants.HOST, ignoreCase = true) &&
-                uri.userInfo == null && (uri.port == -1 || uri.port == 443)
-            ) {
-                uri
-            } else {
-                null
-            }
-        } catch (_: Exception) {
-            null
         }
     }
 

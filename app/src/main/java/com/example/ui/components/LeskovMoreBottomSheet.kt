@@ -5,7 +5,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -89,11 +88,13 @@ fun LeskovMoreBottomSheet(
     onRequireLoginForSettings: () -> Unit,
     onClearAppCache: () -> Unit,
     onEnableNotifications: () -> Unit,
-    onOpenDeleteCookiesConfirm: () -> Unit
+    onOpenDeleteCookiesConfirm: () -> Unit,
+    onShowMessage: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    LeskovCompactContent {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -114,7 +115,7 @@ fun LeskovMoreBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("LESKOV", style = MaterialTheme.typography.titleLarge,
+                    Text("LESKOV", style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 24.sp),
                         color = LeskovOnBackground)
                     Text(LeskovStrings.sheetTitle(language),
                         style = MaterialTheme.typography.bodyMedium, color = LeskovTextMuted)
@@ -177,7 +178,7 @@ fun LeskovMoreBottomSheet(
                 tag = "sheet_support_item",
                 onClick = {
                     onDismiss()
-                    sendSupportEmail(context)
+                    sendSupportEmail(context, onShowMessage)
                 }
             )
 
@@ -232,6 +233,7 @@ fun LeskovMoreBottomSheet(
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
+    }
 }
 
 @Composable
@@ -260,7 +262,7 @@ private fun MoreSheetItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 72.dp)
+            .heightIn(min = 60.dp)
             .scale(scale)
             .clip(RoundedCornerShape(12.dp))
             .clickable(interactionSource = interaction,
@@ -268,12 +270,12 @@ private fun MoreSheetItem(
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onClick()
                 })
-            .padding(vertical = 12.dp, horizontal = 8.dp)
+            .padding(vertical = 10.dp, horizontal = 8.dp)
             .testTag(tag),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(14.dp))
+            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(14.dp))
                 .background(iconTint.copy(alpha = 0.10f)),
             contentAlignment = Alignment.Center
         ) {
@@ -281,13 +283,15 @@ private fun MoreSheetItem(
                 modifier = Modifier.size(22.dp))
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    lineHeight = 19.sp,
                     color = LeskovOnBackground
                 )
             )
@@ -306,7 +310,7 @@ private fun MoreSheetItem(
     }
 }
 
-private fun sendSupportEmail(context: Context) {
+private fun sendSupportEmail(context: Context, onShowMessage: (String) -> Unit) {
     val email = LeskovConstants.SUPPORT_EMAIL
     try {
         val intent = Intent(Intent.ACTION_SENDTO).apply {
@@ -320,6 +324,6 @@ private fun sendSupportEmail(context: Context) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         val clip = ClipData.newPlainText("LESKOV Support Email", email)
         clipboard?.setPrimaryClip(clip)
-        Toast.makeText(context, "Email скопирован в буфер: $email", Toast.LENGTH_LONG).show()
+        onShowMessage("Email скопирован в буфер: $email")
     }
 }
