@@ -27,6 +27,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.example.MainActivity
 import com.example.R
 
@@ -97,7 +98,7 @@ class LeskovMediaService : Service() {
         }
 
         val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
-        registerReceiver(noisyReceiver, filter)
+        ContextCompat.registerReceiver(this, noisyReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         isReceiverRegistered = true
     }
 
@@ -148,11 +149,7 @@ class LeskovMediaService : Service() {
                 notifyWebClientsPause()
                 stopSelf()
             }
-            ACTION_HANDOFF_SILENT -> {
-                // Media3 has assumed ownership. Don't send a pause back to the new page.
-                stopPlayback()
-                stopSelf()
-            }
+
         }
         return START_NOT_STICKY
     }
@@ -408,6 +405,7 @@ class LeskovMediaService : Service() {
             } catch (_: Exception) {}
             isReceiverRegistered = false
         }
+        resetReportedState()
         stopPlayback()
         mediaSession?.release()
         mediaSession = null
@@ -427,7 +425,6 @@ class LeskovMediaService : Service() {
         const val ACTION_USER_NEXT = "com.example.media.ACTION_USER_NEXT"
         const val ACTION_USER_TOGGLE_PLAY_PAUSE = "com.example.media.ACTION_USER_TOGGLE_PLAY_PAUSE"
         const val ACTION_USER_STOP = "com.example.media.ACTION_USER_STOP"
-        private const val ACTION_HANDOFF_SILENT = "com.example.media.ACTION_HANDOFF_SILENT"
 
         const val EXTRA_TITLE = "extra_title"
         const val EXTRA_ARTIST = "extra_artist"
@@ -464,7 +461,6 @@ class LeskovMediaService : Service() {
         fun updatePlayback(context: Context, isPlaying: Boolean, title: String?, artist: String?,
                            artwork: String? = null, positionMs: Long = 0L, durationMs: Long = 0L,
                            hasPrevious: Boolean = false, hasNext: Boolean = false) {
-            if (LeskovNativeAudioService.isActive()) return
             // Idempotent state deduplication: do not churn if state didn't change
             val metadataSame = lastReportedState == isPlaying && lastReportedTitle == title &&
                 lastReportedArtist == artist && lastReportedArtwork == artwork
@@ -507,7 +503,7 @@ class LeskovMediaService : Service() {
             }
         }
 
-        fun stopSilently(context: Context) {
+        private fun resetReportedState() {
             lastReportedState = null
             lastReportedTitle = null
             lastReportedArtist = null
@@ -516,11 +512,11 @@ class LeskovMediaService : Service() {
             lastReportedDuration = -1L
             lastReportedCanPrevious = false
             lastReportedCanNext = false
-            try {
-                context.startService(Intent(context, LeskovMediaService::class.java).apply {
-                    action = ACTION_HANDOFF_SILENT
-                })
-            } catch (_: Exception) { }
+        }
+
+        fun stopSilently(context: Context) {
+            resetReportedState()
+            context.stopService(Intent(context, LeskovMediaService::class.java))
         }
 
         fun stop(context: Context) {

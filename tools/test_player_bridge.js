@@ -54,11 +54,6 @@ check(f.messages[0].positionMs, 42000);
 check(f.messages[0].durationMs, 180000);
 check(f.messages[0].hasNext, true);
 check(f.messages[0].hasPrevious, true);
-const snap = JSON.parse(f.api.snapshot());
-check(snap.url, media.currentSrc);
-check(snap.queue.length, 2);
-check(snap.mode, 'shuffle');
-check(snap.queueIndex, 0);
 check(f.api.command('next'), true); check(next, 1);
 check(f.api.command('previous'), true); check(prev, 1);
 check(f.api.command('seek:90000'), true); check(media.currentTime, 90);
@@ -69,20 +64,19 @@ f.api.command('pause'); f.flush();
 check(f.messages.at(-1).playing, false);
 check(f.messages.at(-1).title, 'Premium track');
 check(f.messages.at(-1).positionMs, 180000);
-check(f.api.snapshot(), null);
 f.api.command('play'); f.flush(); check(f.messages.at(-1).playing, true);
 
-// Ringtones and WebRTC must never stop native music or appear as its notification.
+// Ringtones and WebRTC must never appear as music notifications.
 for (const a of [audio(''),audio('https://evil.test/song.mp3'),audio('https://lesv.online/call_ringtone.wav'),audio('https://lesv.online/uploads/notification_chime.wav'),
     audio(undefined,{srcObject:{}}),audio(undefined,{tagName:'VIDEO'}),
     audio('https://user:pass@lesv.online/a.mp3'),audio('http://lesv.online/a.mp3')]) {
     const rejected = fixture({dom:[a]});
     rejected.event('play',a); rejected.flush();
-    check(rejected.messages.length, 0); check(rejected.api.snapshot(), null);
+    check(rejected.messages.length, 0);
 }
-// Blob audio remains controllable in WebView, but is never sent to Media3 as an HTTPS stream.
+// Blob audio stays controllable in the website engine.
 const blob = fixture({dom:[audio('blob:https://lesv.online/123')]});
-check(blob.messages[0].playing,true); check(blob.api.snapshot(),null);
+check(blob.messages[0].playing,true);
 
 // Discover a manager created after script installation and retain paused track details.
 const late = fixture(); check(late.messages.length,0);
@@ -94,12 +88,6 @@ lateMedia.paused = true; late.event('pause',lateMedia); late.flush();
 check(late.messages.at(-1).playing,false);
 check(late.messages.at(-1).title,'Late Premium');
 
-// Invalid, unselected, or oversized queues must not change which song resumes.
-for (const playlist of [[{src:'https://evil.test/a.mp3'}], Array(101).fill({src:media.currentSrc}),
-    [{src:'/tracks/other.mp3'}], [{src:media.currentSrc},{src:'/call_ringtone.wav'}]]) {
-    const test = fixture({active:{...player,playlist}});
-    check(JSON.parse(test.api.snapshot()).queue,undefined);
-}
 const single = fixture({active:{...player,playlist:[]}});
 check(single.messages[0].hasNext,false); check(single.api.command('next'),false);
 // The header panel is a separate Premium engine without manager.active/instances.
@@ -121,19 +109,10 @@ const headerPanel = {dataset:{}, querySelectorAll: () => headerTracks};
 const h = fixture({header:{root:headerRoot,panel:headerPanel},headerAudio:headerMedia});
 check(h.messages[0].title,'Header One'); check(h.messages[0].artist,'Header Artist');
 check(h.messages[0].hasNext,true);
-const headerSnapshot = JSON.parse(h.api.snapshot());
-check(headerSnapshot.queue.length,2); check(headerSnapshot.mode,'repeat');
 h.api.command('pause');h.flush();check(headerToggles,1);check(h.messages.at(-1).playing,false);
 h.api.command('play');h.flush();check(headerToggles,2);check(h.messages.at(-1).playing,true);
 h.api.command('next');h.flush();check(h.messages.at(-1).title,'Header Two');
-check(JSON.parse(h.api.snapshot()).queueIndex,1);
 h.api.command('seek:5000');check(headerMedia.currentTime,5);
 
-// A real user press must release native audio focus before the site's click handler plays.
-const pointerButton = {disabled:false,getAttribute:()=>null,closest:()=>headerRoot};
-h.event('pointerdown',{closest:()=>pointerButton});check(h.messages.at(-1).type,'web_start');
-const beforeDisabled = h.messages.length; pointerButton.disabled=true;
-h.event('pointerdown',{closest:()=>pointerButton});check(h.messages.length,beforeDisabled);
-
 const foreign = fixture({origin:'https://evil.test'}); check(foreign.api,undefined);
-console.log(`PASS player bridge: ${assertions} assertions (Premium, detached media, pause/seek, queue, calls, origin)`);
+console.log(`PASS player bridge: ${assertions} assertions (Premium, detached media, pause/seek, calls, origin)`);

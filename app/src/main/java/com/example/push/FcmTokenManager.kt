@@ -160,27 +160,53 @@ object FcmTokenManager {
     }
 
     /** Syncs the device token with the COMPANION server endpoint via an authenticated first-party WebView. */
-    fun syncTokenWithServer(context: Context, webView: WebView?, userId: Int, language: AppLanguage) {
-        if (userId <= 0 || webView == null || !isFirebaseConfigured(context)) return
+    fun syncTokenWithServer(context: Context, webView: WebView?, userId: Int, language: AppLanguage,
+                            force: Boolean = false, onResult: (String) -> Unit = {}) {
+        fun report(status: String) {
+            val text = com.example.model.LeskovStrings.notificationStatus(language, status)
+            webView?.post {
+                webView.evaluateJavascript("window.__leskovAppShell && window.__leskovAppShell.setPushStatus(${JSONObject.quote(text)});", null)
+            }
+            onResult(status)
+        }
+        if (!isFirebaseConfigured(context)) { report("firebase_missing"); return }
+        if (userId <= 0) { report("login_required"); return }
+        if (webView == null) { report("page_unavailable"); return }
+        if (!androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            report("webview_unsupported"); return
+        }
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
             saveToken(context, token)
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val marker = "$userId:${token.hashCode()}"
-            if (marker == prefs.getString(KEY_LAST_SYNCED_USER, null) &&
-                System.currentTimeMillis() - prefs.getLong(KEY_LAST_SYNCED_AT, 0L) < 86_400_000L) return@addOnSuccessListener
-            firstPartyRequest(webView, "register", token, language) { status ->
-                if (status == "status:200") prefs.edit().putString(KEY_LAST_SYNCED_USER, marker)
-                    .putLong(KEY_LAST_SYNCED_AT, System.currentTimeMillis()).apply()
-                else Log.w(TAG, "FCM server sync unavailable: $status (backend-patch must be deployed)")
+            if (!force && prefs.getBoolean("delivery_verified", false) &&
+                marker == prefs.getString(KEY_LAST_SYNCED_USER, null) &&
+                System.currentTimeMillis() - prefs.getLong(KEY_LAST_SYNCED_AT, 0L) < 86_400_000L) {
+                report("ready"); return@addOnSuccessListener
             }
-        }.addOnFailureListener { Log.w(TAG, "Unable to refresh FCM token", it) }
+            firstPartyRequest(webView, "register", token, language) { status ->
+                if (status == "status:200") {
+                    prefs.edit().putString(KEY_LAST_SYNCED_USER, marker).putBoolean("delivery_verified", true)
+                        .putLong(KEY_LAST_SYNCED_AT, System.currentTimeMillis()).apply()
+                    report("ready")
+                } else {
+                    prefs.edit().putBoolean("delivery_verified", false).apply()
+                    Log.w(TAG, "FCM registration: $status")
+                    report(when (status) {
+                        "server_unconfigured" -> "server_unconfigured"
+                        "csrf:401", "status:401" -> "login_required"
+                        else -> "registration_failed"
+                    })
+                }
+            }
+        }.addOnFailureListener { Log.w(TAG, "Unable to refresh FCM token", it); report("token_failed") }
     }
 
     private fun firstPartyRequest(webView: WebView, action: String, token: String,
                                   language: AppLanguage, onResult: (String) -> Unit) {
         webView.post {
             val uri = try { Uri.parse(webView.url ?: "") } catch (_: Exception) { null }
-            if (uri?.scheme != "https" || uri.host != LeskovConstants.HOST) {
+            if (!com.example.web.WebNavigation.isTrustedUri(uri)) {
                 onResult("wrong_origin"); return@post
             }
             // WebView.evaluateJavascript returns a Promise object, NOT its resolved value.
@@ -211,7 +237,9 @@ object FcmTokenManager {
                           method:'POST',credentials:'same-origin',
                           headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
                           signal:abort.signal,body:body});
-                        status='status:'+resp.status;
+                        const result=await resp.json();
+                        status=resp.ok && result.ok ?
+                          (result.delivery_ready===true ? 'status:200' : 'server_unconfigured') : 'status:'+resp.status;
                       }
                     }
                   }catch(e){status='network_error';}
@@ -238,7 +266,7 @@ object FcmTokenManager {
     fun unregisterTokenOnServer(context: Context, webView: WebView?, onComplete: () -> Unit) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val token = prefs.getString(KEY_FCM_TOKEN, null)
-        prefs.edit().remove(KEY_LAST_SYNCED_USER).remove(KEY_FCM_TOKEN).apply()
+        prefs.edit().remove(KEY_LAST_SYNCED_USER).remove(KEY_FCM_TOKEN).remove("delivery_verified").apply()
         fun done() {
             if (isFirebaseConfigured(context)) {
                 FirebaseMessaging.getInstance().deleteToken().addOnFailureListener {

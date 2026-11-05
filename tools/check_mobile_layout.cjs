@@ -5,16 +5,16 @@ const path=require('path');
 const root=path.resolve(__dirname,'..');
 const reportDir=path.join(root,'build/reports/mobile-layout');
 fs.mkdirSync(reportDir,{recursive:true});
-const web=fs.readFileSync(root+'/app/src/main/java/com/example/ui/components/LeskovWebView.kt','utf8');
-const layout=web.match(/val jsScopedLayout = """([\s\S]*?)"""\.trimIndent/)[1];
+const layout=fs.readFileSync(root+'/app/src/main/assets/leskov-app-shell.js','utf8');
 const css=fs.readFileSync(root+'/app/src/main/assets/leskov-mobile.css','utf8');
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.LESKOV_BROWSER || '/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
  const results=[];
+ const context=await browser.newContext({isMobile:true,deviceScaleFactor:1,userAgent:'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36 LESKOV-Android/3.4.1'});
+ const page=await context.newPage();
  for(const width of [320,360,412,768,1024]) {
-  const context=await browser.newContext({viewport:{width,height:800},isMobile:true,deviceScaleFactor:1,userAgent:'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36 LESKOV-Android/3.3.1'});
+  await page.setViewportSize({width,height:800});
   for(const route of ['index.php','discover.php','auth.php','terms.php','privacy_policy.php','profile.php','feed.php','messages.php']){
-   const page=await context.newPage();
    try {
     await page.goto('https://lesv.online/'+route,{waitUntil:'domcontentloaded',timeout:30000});
     await page.evaluate(layout);
@@ -26,14 +26,14 @@ const css=fs.readFileSync(root+'/app/src/main/assets/leskov-mobile.css','utf8');
     results.push({viewport:width,route,final:page.url(),...dimensions});
     if(width===360 && ['index.php','auth.php','discover.php'].includes(route))await page.screenshot({path:path.join(reportDir,route+'.png'),fullPage:false});
    }catch(e){results.push({viewport:width,route,error:e.message})}
-   await page.close();
+   fs.writeFileSync(path.join(reportDir,'results.json'),JSON.stringify(results,null,2));
   }
-  await context.close();
   console.log('checked width',width);
  }
  fs.writeFileSync(path.join(reportDir,'results.json'),JSON.stringify(results,null,2));
  const failures=results.filter(r=>r.error||r.scroll>r.width+2||r.overflow?.length);
  console.log(JSON.stringify(failures,null,2));
  if(failures.length)process.exitCode=1;
+ await context.close();
  await browser.close();
 })();

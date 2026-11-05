@@ -47,10 +47,10 @@ jobs:
 
       - name: Test website audio integration
         run: |
-          node tools/test_audio_snapshot.js
           node tools/test_player_bridge.js
+          node tools/test_app_shell.js
 
-      - name: Configure optional REAL Firebase project
+      - name: Configure Firebase project
         shell: bash
         env:
           FIREBASE_ANDROID_CONFIG_BASE64: ${{ secrets.FIREBASE_ANDROID_CONFIG_BASE64 }}
@@ -59,7 +59,8 @@ jobs:
             printf '%s' "$FIREBASE_ANDROID_CONFIG_BASE64" | base64 --decode > app/google-services.json
             python3 tools/validate_source.py
           else
-            echo 'FCM unavailable: no real Firebase configuration supplied.'
+            echo 'Missing FIREBASE_ANDROID_CONFIG_BASE64: refusing to build an APK without notifications.'
+            exit 1
           fi
 
       - name: Build Android debug APK

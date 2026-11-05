@@ -32,6 +32,7 @@ data class LeskovUiState(
     val retryUrl: String = LeskovConstants.buildUrl(LeskovConstants.HOME_PATH, AppLanguage.RU),
     val canGoBack: Boolean = false,
     val showMoreSheet: Boolean = false,
+    val isCallActive: Boolean = false,
     val statusMessage: String? = null
 )
 
@@ -56,6 +57,10 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         }
+    }
+
+    fun onCallVisibilityChanged(active: Boolean) {
+        _uiState.update { it.copy(isCallActive = active) }
     }
 
     fun onLanguageDetected(langCode: String?) {

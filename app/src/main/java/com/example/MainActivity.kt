@@ -35,7 +35,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -65,8 +64,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.example.media.LeskovAudioHandoff
-import com.example.media.LeskovNativeAudioService
+import com.example.web.WebNavigation
 import com.example.model.AppLanguage
 import com.example.model.LeskovStrings
 import com.example.model.LeskovConstants
@@ -88,7 +86,6 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: LeskovViewModel by viewModels()
     private var webViewRef: WebView? = null
-    private var navigationSerial = 0
     private var restoredWebState: Bundle? = null
     private val fullscreenVideoHost by lazy { com.example.ui.components.FullscreenVideoHost(this) }
 
@@ -97,17 +94,9 @@ class MainActivity : ComponentActivity() {
 
     private fun navigatePreservingMusic(url: String) {
         val page = webViewRef ?: return
-        val requestId = ++navigationSerial
-        LeskovAudioHandoff.beforeLeaving(page) {
-            if (requestId == navigationSerial && webViewRef === page) page.loadUrl(url)
+        WebNavigation.navigate(page, url) {
+            viewModel.showMessage(LeskovStrings.finishCallFirst(viewModel.uiState.value.language))
         }
-    }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        // Home / app switcher: move an eligible playing HTTPS stream into the
-        // independent native Media3 session so screen lock does not kill it.
-        webViewRef?.let { LeskovAudioHandoff.beforeLeaving(it) { } }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -152,9 +141,12 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     onNavigate = { url -> navigatePreservingMusic(url) },
+                    onCancelMediaPermission = { request ->
+                        if (pendingPermissionRequest === request) pendingPermissionRequest = null
+                    },
                     onRequestMediaPermission = { request ->
                         // Only one origin-owned WebRTC request may be active at a time.
-                        pendingPermissionRequest?.deny()
+                        pendingPermissionRequest?.let { runCatching { it.deny() } }
                         pendingPermissionRequest = request
                         val resources = request.resources
                         var needCamera = false
@@ -211,10 +203,9 @@ class MainActivity : ComponentActivity() {
         pendingPermissionRequest = null
         if (request != null) {
             val allGranted = grants.isNotEmpty() && grants.values.all { it }
-            if (allGranted && isTrustedCurrentPage()) {
-                request.grant(request.resources)
-            } else {
-                request.deny()
+            runCatching {
+                if (allGranted && isTrustedCurrentPage()) request.grant(request.resources)
+                else request.deny()
             }
         }
     }
@@ -253,7 +244,7 @@ class MainActivity : ComponentActivity() {
         fullscreenVideoHost.hide()
         pendingFilePathCallback?.onReceiveValue(null)
         pendingFilePathCallback = null
-        pendingPermissionRequest?.deny()
+        pendingPermissionRequest?.let { runCatching { it.deny() } }
         pendingPermissionRequest = null
         webViewRef = null
         super.onDestroy()
@@ -283,23 +274,38 @@ fun LeskovApp(
     getWebView: () -> WebView?,
     onOpenFileChooser: (ValueCallback<Array<Uri>>, WebChromeClient.FileChooserParams) -> Boolean,
     onRequestMediaPermission: (PermissionRequest) -> Unit,
+    onCancelMediaPermission: (PermissionRequest) -> Unit,
     onNavigate: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val nativeAudio by LeskovNativeAudioService.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val density = LocalDensity.current
     val keyboardVisible = WindowInsets.ime.getBottom(density) > 0
     var showDeleteCookiesDialog by remember { mutableStateOf(false) }
 
+    fun connectNotifications() {
+        if (!androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+            viewModel.showMessage(LeskovStrings.notificationStatus(uiState.language, "permission_denied"))
+            return
+        }
+        viewModel.showMessage(LeskovStrings.notificationStatus(uiState.language, "connecting"))
+        com.example.push.FcmTokenManager.syncTokenWithServer(context, getWebView(), uiState.currentUserId,
+            uiState.language, force = true) { status ->
+            viewModel.showMessage(LeskovStrings.notificationStatus(uiState.language, status))
+        }
+    }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        viewModel.showMessage(LeskovStrings.notificationStatus(
-            uiState.language,
-            if (!granted) "permission_denied" else if (!com.example.push.FcmTokenManager.isFirebaseConfigured(context)) "firebase_missing" else "ready"
-        ))
+        if (granted) connectNotifications()
+        else viewModel.showMessage(LeskovStrings.notificationStatus(uiState.language, "permission_denied"))
+    }
+    val requestNotifications: () -> Unit = {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else connectNotifications()
     }
 
     // Channel creation is harmless; permission is requested later from a user-initiated
@@ -324,6 +330,8 @@ fun LeskovApp(
     BackHandler(enabled = true) {
         if (fullscreenVideoHost?.isActive == true) {
             fullscreenVideoHost.hide()
+        } else if (uiState.isCallActive) {
+            viewModel.showMessage(LeskovStrings.finishCallFirst(uiState.language))
         } else if (uiState.showMoreSheet) {
             viewModel.toggleMoreSheet(false)
         } else if (uiState.showAuthGate) {
@@ -332,7 +340,7 @@ fun LeskovApp(
         } else {
             val webView = getWebView()
             if (webView != null && webView.canGoBack()) {
-                LeskovAudioHandoff.beforeLeaving(webView) { webView.goBack() }
+                webView.goBack()
             } else {
                 (context as? ComponentActivity)?.finish()
             }
@@ -343,11 +351,6 @@ fun LeskovApp(
         uiState.statusMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
-        }
-    }
-    LaunchedEffect(nativeAudio.error) {
-        if (nativeAudio.error != null) {
-            snackbarHostState.showSnackbar(LeskovStrings.playbackError(uiState.language))
         }
     }
     val progressFraction by animateFloatAsState(
@@ -364,7 +367,7 @@ fun LeskovApp(
         topBar = { /* Clean layout - no heavy header bar */ },
         bottomBar = {
             // Keep form fields visible when the Android keyboard is open.
-            AnimatedVisibility(visible = !keyboardVisible,
+            AnimatedVisibility(visible = !keyboardVisible && !uiState.isCallActive,
                 enter = fadeIn(tween(140)) + slideInVertically(tween(180)) { it / 2 },
                 exit = fadeOut(tween(120)) + slideOutVertically(tween(150)) { it / 2 }
             ) {
@@ -389,7 +392,6 @@ fun LeskovApp(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .imePadding()
                 .background(LeskovBackground)
         ) {
             // Main WebView remains persistent in the hierarchy to retain state, cookies & playback
@@ -397,17 +399,8 @@ fun LeskovApp(
                 viewModel = viewModel,
                 onFileChooserRequested = onOpenFileChooser,
                 onPermissionRequested = onRequestMediaPermission,
-                onNativePushRequested = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        val configured = com.example.push.FcmTokenManager.isFirebaseConfigured(context)
-                        viewModel.showMessage(LeskovStrings.notificationStatus(
-                            uiState.language, if (configured) "ready" else "firebase_missing"))
-                        if (configured) com.example.push.FcmTokenManager.refreshDeviceToken(context)
-                    }
-                },
+                onPermissionCancelled = onCancelMediaPermission,
+                onNativePushRequested = requestNotifications,
                 onWebViewCreated = onSetWebView,
                 fullscreenVideoHost = fullscreenVideoHost,
                 modifier = Modifier
@@ -506,16 +499,7 @@ fun LeskovApp(
                 onClearAppCache = {
                     viewModel.clearAppCache(getWebView())
                 },
-                onEnableNotifications = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        val state = if (!com.example.push.FcmTokenManager.isFirebaseConfigured(context)) "firebase_missing" else "ready"
-                        viewModel.showMessage(LeskovStrings.notificationStatus(uiState.language, state))
-                        if (state == "ready") com.example.push.FcmTokenManager.refreshDeviceToken(context)
-                    }
-                },
+                onEnableNotifications = requestNotifications,
                 onOpenDeleteCookiesConfirm = {
                     showDeleteCookiesDialog = true
                 }

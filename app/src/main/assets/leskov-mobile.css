@@ -1,80 +1,96 @@
-/* Android WebView uses CSS pixels. Never scale/zoom the root or the player's coordinates. */
-html[data-leskov-app] {
-    color-scheme: dark;
-    -webkit-text-size-adjust: 100%;
-    --leskov-app-accent: #b5a8ff;
-    --leskov-app-outline: rgba(181,168,255,.22);
+/* One CSS-pixel coordinate system for pages, fixed dialogs, seek bars and video calls. */
+html[data-leskov-app] { font-size: 16px !important; -webkit-text-size-adjust: 100% !important; }
+html[data-leskov-app], html[data-leskov-app] body {
+    min-width: 0 !important; width: 100%; max-width: 100%; box-sizing: border-box;
 }
-html[data-leskov-app] body { min-width: 0; }
-html[data-leskov-app] :focus-visible { outline: 2px solid var(--leskov-app-accent); outline-offset: 3px; }
-html[data-leskov-app] :is(button,a,input,textarea,select) { -webkit-tap-highlight-color: rgba(181,168,255,.15); }
-html[data-leskov-app] :is(.leskov-player,.premium-player,[data-premium-player]) {
-    box-sizing: border-box;
-    min-width: 0;
-    max-width: 100%;
-    border-color: var(--leskov-app-outline);
-    box-shadow: 0 16px 48px rgba(0,0,0,.24);
-}
-html[data-leskov-app] #leskov-native-playback-badge {
-    display: block;
-    box-sizing: border-box;
-    width: 100%;
-    grid-column: 1 / -1;
-    min-height: 48px;
-    margin-top: 12px;
-    padding: 12px 16px;
-    border: 1px solid var(--leskov-app-outline);
-    border-radius: 16px;
-    background: linear-gradient(120deg,#2b2545,#171d31);
-    color: #f5f3ff;
-    font: inherit;
-    font-size: 14px;
-    overflow-wrap: anywhere;
-    text-align: center;
-}
+html[data-leskov-app] body { font-size: 14px; line-height: 1.5; }
+html[data-leskov-app] :focus-visible { outline: 2px solid var(--accent,#7a8aff); outline-offset: 3px; }
+html[data-leskov-app] #leskov-native-playback-badge { display: none !important; }
 @media (max-width: 850px) {
-    html[data-leskov-app] :is(main,.container,.page-container,.content,.profile-main,.feed-container) {
-        min-width: 0;
-        max-width: 100%;
-        box-sizing: border-box;
+    html[data-leskov-app] :is(main,.container,.page-container,.content,.profile-main,.feed-container,.surface-card,.profile-layout,.profile-container) {
+        min-width: 0 !important; max-width: 100% !important; box-sizing: border-box;
     }
-    html[data-leskov-app] :is(p,h1,h2,h3,.track-title,.track-name,.song-title) { overflow-wrap: anywhere; }
-    html[data-leskov-app] :is(iframe,video,canvas) { max-width: 100%; }
-    html[data-leskov-app] pre { overflow-x: auto; white-space: pre; }
-    html[data-leskov-app] :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=color]),textarea,select) {
-        min-height: 48px;
-        border-radius: 12px;
+    html[data-leskov-app] :is(h1,h2,h3,p,.track-title,.track-name,.song-title) { overflow-wrap: anywhere; }
+    html[data-leskov-app] h1 { font-size: clamp(22px,6vw,28px) !important; line-height: 1.2 !important; }
+    html[data-leskov-app] h2 { font-size: clamp(19px,5vw,24px) !important; line-height: 1.25 !important; }
+    html[data-leskov-app] h3 { font-size: clamp(16px,4.4vw,20px) !important; line-height: 1.3 !important; }
+    html[data-leskov-app] :is(input,textarea,select,button) { box-sizing: border-box; max-width: 100%; }
+    html[data-leskov-app] :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]),textarea,select) {
+        min-width: 0; font-size: 16px !important;
     }
-    html[data-leskov-app] :is(.leskov-player__btn,.leskov-player__center-btn,.promo-player-btn,.header-player-control) {
-        min-width: 44px;
-        min-height: 44px;
-        touch-action: manipulation;
+    html[data-leskov-app] input[type=file] { width: 100%; font-size: 13px !important; }
+    html[data-leskov-app] :is(img,iframe,video,canvas) { max-width: 100%; }
+    html[data-leskov-app] pre { max-width: 100%; overflow-x: auto; }
+    html[data-leskov-app] :is(.profile-tabs,.profile-nav,.nav-tabs,.settings-tabs,.leskov-notifications__tabs) {
+        min-width: 0; max-width: 100%; overflow-x: auto; flex-wrap: nowrap;
     }
-    html[data-leskov-app] .leskov-player__seek-track { touch-action: pan-y; }
-    html[data-leskov-app] :is(.leskov-player__title,.leskov-player__artist) { min-width: 0; overflow-wrap: anywhere; }
-    html[data-leskov-app] :is([role=dialog],dialog[open],#premiumPlayerModal) {
-        max-width: calc(100vw - 24px);
-        max-height: calc(100dvh - 24px);
-        overscroll-behavior: contain;
+    html[data-leskov-app] :is(.profile-tabs,.profile-nav,.nav-tabs,.settings-tabs) > * { flex-shrink: 0; }
+    html[data-leskov-app] .header-inner { gap: 8px !important; padding-block: 8px !important; }
+    html[data-leskov-app] .brand img { width: 36px !important; height: 36px !important; }
+    html[data-leskov-app] .brand-copy strong { font-size: 22px !important; }
+    html[data-leskov-app] .header-icon-btn { width: 38px !important; height: 38px !important; min-width: 38px !important; }
+    html[data-leskov-app] :is(.header-search,.site-search,.search-form) { min-width: 0 !important; }
+    html[data-leskov-app] :is(.header-search,.site-search,.search-form) input { width: 100%; min-width: 0 !important; }
+    html[data-leskov-app] :is(.notification-modal,.notifications-modal,.notification-settings-modal,.auth-modal) {
+        box-sizing: border-box; max-width: 100%;
     }
-}
-@media (max-width: 380px) {
-    html[data-leskov-app] .leskov-player__controls { gap: 6px; flex-wrap: wrap; }
-    html[data-leskov-app] #headerPlayerPanel .header-player-controls { gap: 8px; }
-    html[data-leskov-app] #headerPlayerPanel .header-player-now-copy { min-width: 0; }
-}
-@media (prefers-reduced-motion: no-preference) {
-    html[data-leskov-app] :is(.leskov-player__btn,.leskov-player__center-btn,.promo-player-btn,.header-player-control) {
-        transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+    html[data-leskov-app] :is(.auth-modal__dialog,.notification-modal .modal-content,.notifications-modal .modal-content) {
+        box-sizing: border-box; width: min(100%,440px); max-width: calc(100vw - 24px);
+        max-height: calc(100dvh - 24px); overflow-y: auto; padding: 18px !important;
     }
-    html[data-leskov-app] #leskov-native-playback-badge { animation: leskov-app-reveal .22s ease-out; }
-    @keyframes leskov-app-reveal { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    html[data-leskov-app] :is(.leskov-notif-prefs,.leskov-notif-prefs__table-wrap) { min-width: 0; max-width: 100%; overflow-x: auto; }
+    html[data-leskov-app] :is(.leskov-player,.premium-player,[data-header-player]) { min-width: 0; box-sizing: border-box; }
+    html[data-leskov-app] #headerPlayerPanel .header-player-dialog { max-height: calc(100dvh - 16px) !important; }
+    html[data-leskov-app] #headerPlayerPanel .header-player-stage { padding: 16px !important; }
+    html[data-leskov-app] #headerPlayerPanel .header-player-cover { width: min(44vw,160px) !important; height: min(44vw,160px) !important; margin-inline: auto; }
+    html[data-leskov-app] #headerPlayerPanel [data-header-title] { font-size: 20px !important; line-height: 1.25 !important; }
+    html[data-leskov-app] #headerPlayerPanel [data-header-artist] { font-size: 14px !important; }
+    html[data-leskov-app] #headerPlayerPanel .header-player-modes { display: flex !important; flex-wrap: wrap !important; gap: 6px !important; }
+    html[data-leskov-app] #headerPlayerPanel .header-player-mode { flex: 1 1 auto; min-width: 0; font-size: 12px !important; padding: 8px !important; white-space: normal !important; }
+    html[data-leskov-app] :is(.profile-player-fab,.floating-player-toggle) { max-width: 48px !important; max-height: 48px !important; }
+
+    /* Both call engines: overlay fills the WebView; only its card scrolls. */
+    html[data-leskov-app] :is(#callOverlay,#incomingCallModal,[data-call-incoming],[data-call-active]):not([hidden]) {
+        position: fixed !important; inset: 0 !important; width: 100% !important; height: 100dvh !important;
+        max-width: none !important; max-height: none !important; margin: 0 !important;
+        padding: 12px !important; box-sizing: border-box !important; z-index: 2147483000 !important;
+        overflow: hidden !important;
+    }
+    html[data-leskov-app] :is(.call-overlay__card,.incoming-call-modal__dialog,.calls-incoming__card) {
+        box-sizing: border-box !important; width: min(100%,420px) !important;
+        max-width: 100% !important; max-height: calc(100dvh - 24px) !important;
+        overflow-y: auto !important; padding: 18px !important; border-radius: 20px !important;
+        margin: auto !important;
+    }
+    html[data-leskov-app] .call-overlay__peer { gap: 12px !important; margin-bottom: 12px !important; }
+    html[data-leskov-app] .call-overlay__peer img { width: 48px !important; height: 48px !important; }
+    html[data-leskov-app] .call-overlay__peer strong { font-size: 20px !important; }
+    html[data-leskov-app] .call-video-grid { min-height: 0 !important; height: clamp(140px,42dvh,360px) !important; }
+    html[data-leskov-app] #remoteCallVideo { min-height: 0 !important; width: 100% !important; height: 100% !important; object-fit: contain !important; }
+    html[data-leskov-app] .call-self { max-width: 30% !important; max-height: 30% !important; }
+    html[data-leskov-app] :is(.call-controls,.incoming-call-modal__actions,.calls-incoming__actions) {
+        display: grid !important; grid-template-columns: repeat(2,minmax(0,1fr)) !important; gap: 8px !important;
+    }
+    html[data-leskov-app] :is(.call-controls,.incoming-call-modal__actions,.calls-incoming__actions) button {
+        min-width: 0 !important; min-height: 44px !important; padding: 10px 8px !important;
+        font-size: 14px !important; line-height: 1.2 !important; white-space: normal !important;
+        overflow-wrap: anywhere !important; justify-content: center !important;
+    }
+    html[data-leskov-app] .call-controls .btn-glyph { width: 18px !important; height: 18px !important; flex-shrink: 0; }
+    html[data-leskov-app] .call-controls .btn-glyph svg { width: 18px !important; height: 18px !important; }
+    html[data-leskov-app] .incoming-call-modal__avatar { width: 64px !important; height: 64px !important; margin: 0 auto 12px !important; }
+    html[data-leskov-app] .incoming-call-modal__avatar img { width: 64px !important; height: 64px !important; object-fit: cover; border-radius: 50%; }
+    html[data-leskov-app] .incoming-call-modal__dialog h2 { font-size: 22px !important; margin-block: 12px !important; }
+    html[data-leskov-app] .incoming-call-modal__dialog p { font-size: 15px !important; line-height: 1.4 !important; margin-block: 12px !important; }
+    html[data-leskov-app] [data-call-active] { padding: 0 !important; }
+    html[data-leskov-app] .calls-active__stage { min-height: 0 !important; flex: 1 1 0 !important; }
+    html[data-leskov-app] .calls-active__remote { object-fit: contain !important; }
+    html[data-leskov-app] .calls-active__bar { box-sizing: border-box; flex-wrap: wrap; padding: 12px !important; }
+    html[data-leskov-app] .calls-active__controls { justify-content: center; flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) {
     html[data-leskov-app] *, html[data-leskov-app] *::before, html[data-leskov-app] *::after {
-        animation-duration: .01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: .01ms !important;
-        scroll-behavior: auto !important;
+        animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important; scroll-behavior: auto !important;
     }
 }

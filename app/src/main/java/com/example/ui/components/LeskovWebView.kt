@@ -40,12 +40,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.BuildConfig
 import com.example.media.LeskovMediaService
-import com.example.media.LeskovAudioHandoff
-import com.example.media.LeskovNativeAudioService
+import com.example.web.WebNavigation
 import com.example.push.FcmTokenManager
 import com.example.model.LeskovConstants
 import com.example.viewmodel.PageFailure
@@ -61,14 +59,15 @@ fun LeskovWebView(
     viewModel: LeskovViewModel,
     onFileChooserRequested: (ValueCallback<Array<Uri>>, WebChromeClient.FileChooserParams) -> Boolean,
     onPermissionRequested: (PermissionRequest) -> Unit,
+    onPermissionCancelled: (PermissionRequest) -> Unit,
     onNativePushRequested: () -> Unit,
     modifier: Modifier = Modifier,
     onWebViewCreated: (WebView) -> Unit = {},
     fullscreenVideoHost: FullscreenVideoHost? = null
 ) {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
     val audioBridgeScript = remember { context.assets.open("leskov-player-bridge.js").bufferedReader().use { it.readText() } }
+    val appShellScript = remember { context.assets.open("leskov-app-shell.js").bufferedReader().use { it.readText() } }
     val mobileStyle = remember { context.assets.open("leskov-mobile.css").bufferedReader().use { it.readText() } }
     val layoutScript = remember(mobileStyle) {
         """
@@ -106,7 +105,7 @@ fun LeskovWebView(
                 mediaPlaybackRequiresUserGesture = false
                 useWideViewPort = true
                 loadWithOverviewMode = false
-                textZoom = (configuration.fontScale * 100).toInt().coerceIn(75, 200)
+                textZoom = 100
                 builtInZoomControls = true
                 displayZoomControls = false
                 setSupportZoom(true)
@@ -121,7 +120,7 @@ fun LeskovWebView(
 
             // Install before site scripts so an early Premium autoplay cannot be missed.
             if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-                WebViewCompat.addDocumentStartJavaScript(this, audioBridgeScript + "\n" + layoutScript,
+                WebViewCompat.addDocumentStartJavaScript(this, audioBridgeScript + "\n" + layoutScript + "\n" + appShellScript,
                     setOf("https://${LeskovConstants.HOST}"))
             }
 
@@ -142,20 +141,9 @@ fun LeskovWebView(
                     if (!isMainFrame || origin.scheme != "https" || origin.host != LeskovConstants.HOST) return@addWebMessageListener
                     try {
                         val payload = JSONObject(message.data ?: return@addWebMessageListener)
-                        if (payload.optString("type") == "web_start") {
-                            // A NEW track was started in the web UI. Stop prior Media3 playback
-                            // before Chromium obtains audio focus to prevent the Play→Pause race.
-                            LeskovNativeAudioService.stop(context)
-                            return@addWebMessageListener
-                        }
-                        if (LeskovNativeAudioService.isActive() && !payload.optBoolean("playing", false)) return@addWebMessageListener
                         val playing = payload.optBoolean("playing", false)
                         val title = payload.optString("title", "LESKOV").take(160)
                         val artist = payload.optString("artist", "Igor Leskov").take(160)
-                        if (playing && LeskovNativeAudioService.isActive()) {
-                            // A new web track supersedes the previous native track.
-                            LeskovNativeAudioService.stop(context)
-                        }
                         val artwork = payload.optString("artwork", "").take(1500)
                         LeskovMediaService.updatePlayback(
                             context, playing, title, artist, artwork,
@@ -195,12 +183,20 @@ fun LeskovWebView(
 
             if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
                 WebViewCompat.addWebMessageListener(
-                    this, "LeskovNativePlayback", setOf("https://${LeskovConstants.HOST}")
+                    this, "LeskovPageBridge", setOf("https://${LeskovConstants.HOST}")
                 ) { _, message, origin, isMainFrame, _ ->
                     if (!isMainFrame || origin.scheme != "https" || origin.host != LeskovConstants.HOST) return@addWebMessageListener
-                    when (message.data) {
-                        "toggle" -> this@apply.post { LeskovNativeAudioService.toggle(context) }
-                        "stop" -> this@apply.post { LeskovNativeAudioService.stop(context) }
+                    runCatching {
+                        val state = JSONObject(message.data.orEmpty())
+                        val url = state.optString("url")
+                        if (!WebNavigation.isTrustedUri(Uri.parse(url))) return@runCatching
+                        viewModel.onUrlChanged(url)
+                        viewModel.onLanguageDetected(state.optString("language"))
+                        val userId = state.optInt("userId", -1)
+                        if (userId >= 0) viewModel.onUserSessionDetected(userId)
+                        viewModel.onCallVisibilityChanged(state.optBoolean("callActive"))
+                        viewModel.onProgressChanged(100)
+                        viewModel.setCanGoBack(this@apply.canGoBack())
                     }
                 }
             }
@@ -216,14 +212,9 @@ fun LeskovWebView(
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                     val uri = request?.url ?: return false
                     if (isInternalUri(uri)) {
-                        // A user-clicked GET link creates a new PHP document: transfer the
-                        // outgoing first-party audio stream to Media3 before it disappears.
-                        if (request.isForMainFrame && request.method == "GET"
-                            && uri.toString() != view?.url) {
-                            view?.let { current ->
-                                LeskovAudioHandoff.beforeLeaving(current) { current.loadUrl(uri.toString()) }
-                                return true
-                            }
+                        if (request.isForMainFrame && viewModel.uiState.value.isCallActive) {
+                            viewModel.showMessage(com.example.model.LeskovStrings.finishCallFirst(viewModel.uiState.value.language))
+                            return true
                         }
                         return false
                     }
@@ -240,6 +231,15 @@ fun LeskovWebView(
                     if (view != null && isInternalUri(Uri.parse(url.orEmpty()))) {
                         view.evaluateJavascript(layoutScript, null)
                         view.evaluateJavascript(audioBridgeScript, null)
+                        view.evaluateJavascript(appShellScript, null)
+                    }
+                }
+
+                override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+                    super.doUpdateVisitedHistory(view, url, isReload)
+                    if (url != null && WebNavigation.isTrustedUri(Uri.parse(url))) {
+                        viewModel.onUrlChanged(url)
+                        view?.let { viewModel.setCanGoBack(it.canGoBack()) }
                     }
                 }
 
@@ -254,7 +254,6 @@ fun LeskovWebView(
                     view?.takeIf { isInternalUri(Uri.parse(url.orEmpty())) && !viewModel.uiState.value.isOffline }?.let {
                         viewModel.setCanGoBack(it.canGoBack())
                         applyMobileAppAdaptations(it, viewModel)
-                        publishNativeSessionToPage(it)
                     }
                 }
 
@@ -332,6 +331,10 @@ fun LeskovWebView(
                     onPermissionRequested(request)
                 }
 
+                override fun onPermissionRequestCanceled(request: PermissionRequest?) {
+                    request?.let(onPermissionCancelled)
+                }
+
 
             }
 
@@ -340,19 +343,6 @@ fun LeskovWebView(
             })
 
             onWebViewCreated(this)
-        }
-    }
-
-    // Publish the current Media3 handoff state to whichever PHP page is visible.
-    // The website can listen for "leskov:native-playback" to keep its own controls
-    // in sync without spawning a second player or adding a bottom mini-player.
-    val nativeHandoff by LeskovNativeAudioService.state.collectAsStateWithLifecycle()
-    androidx.compose.runtime.LaunchedEffect(nativeHandoff) {
-        webView.post {
-            val current = webView.url.orEmpty()
-            if (isInternalUri(Uri.parse(current))) {
-                publishNativeSessionToPage(webView)
-            }
         }
     }
 
@@ -372,6 +362,7 @@ fun LeskovWebView(
             fullscreenVideoHost?.hide()
             LeskovMediaService.onMediaActionRequested = null
             CookieManager.getInstance().flush()
+            LeskovMediaService.stopSilently(context)
             runCatching { webView.stopLoading() }
             runCatching { webView.destroy() }
         }
@@ -379,8 +370,7 @@ fun LeskovWebView(
 
     AndroidView(
         factory = { webView },
-        modifier = modifier.fillMaxSize(),
-        update = { it.settings.textZoom = (configuration.fontScale * 100).toInt().coerceIn(75, 200) }
+        modifier = modifier.fillMaxSize()
     )
 }
 
@@ -434,157 +424,11 @@ private fun applyMobileAppAdaptations(webView: WebView, viewModel: LeskovViewMod
     val jsAudioBridgeHook = webView.context.assets.open("leskov-player-bridge.js").bufferedReader().use { it.readText() }
     webView.evaluateJavascript(jsAudioBridgeHook, null)
 
-    // 4. Calls: do not patch getUserMedia or stop all tracks from an Android timer.
-    // The previous injected monitor repeatedly stopped ALL WebRTC tracks while the
-    // site's [data-call-active] panel was hidden, including during ringing/connecting.
-    // Server scripts/calls.js owns acceptance, rejection and media stream lifecycle.
-
-    // 5. Scoped Layout & Profile CSS (Full profile visibility, responsive sections, 84px bottom spacing)
-    val jsScopedLayout = """
-        (function() {
-            try {
-                var path = window.location.pathname;
-                var styleId = 'leskov-mobile-scoped-css';
-                var existing = document.getElementById(styleId);
-                var css = '';
-                var mobileViewport = document.querySelector('meta[name="viewport"]');
-                if (!mobileViewport) {
-                    mobileViewport = document.createElement('meta');
-                    mobileViewport.name = 'viewport';
-                    document.head.appendChild(mobileViewport);
-                }
-                mobileViewport.content = 'width=device-width, initial-scale=1, viewport-fit=cover';
-
-
-                // CSS pixels stay aligned with touch coordinates and the site's seek slider.
-                css += '@media (max-width: 850px) { ';
-                // Never zoom the root: it breaks viewport coordinates and fixed modals.
-                css += 'html { -webkit-text-size-adjust: 100% !important; } ';
-                css += 'html, body { width: 100% !important; max-width: 100% !important; min-width: 0 !important; overflow-x: hidden !important; } ';
-                css += 'h1 { font-size: clamp(25px, 7vw, 34px) !important; line-height: 1.16 !important; overflow-wrap: break-word !important; } ';
-                css += 'h2 { font-size: clamp(21px, 5.5vw, 28px) !important; line-height: 1.2 !important; overflow-wrap: break-word !important; } ';
-                css += 'h3 { font-size: clamp(18px, 4.7vw, 23px) !important; } ';
-                css += 'input, select, textarea, button { max-width: 100% !important; } ';
-                css += 'input[type=file] { display: block; width: 100% !important; min-width: 0 !important; font-size: 14px !important; } ';
-                css += 'input[type=file]::file-selector-button { font-size: 14px !important; padding: 8px 10px !important; } ';
-                css += 'img, video, canvas { max-width: 100% !important; } ';
-                css += '.feed-container, .profile-container, .profile-main, .surface-card { min-width: 0 !important; max-width: 100% !important; } ';
-                css += '[role=\"dialog\"], dialog[open], .notification-modal, .notifications-modal, .notifications-dialog, .notification-settings-modal { max-width: min(94vw, 460px) !important; max-height: min(88dvh, 760px) !important; overflow-y: auto !important; overscroll-behavior: contain !important; box-sizing: border-box !important; } ';
-                css += '.notification-modal button, .notifications-modal button, .notification-settings-modal button { font-size: 14px !important; max-width: 100% !important; white-space: normal !important; } ';
-                css += '.notification-modal .modal-content, .notifications-modal .modal-content, .notification-settings-modal .modal-content { max-width: 100% !important; padding: 12px !important; } ';
-                css += 'input, textarea, select { font-size: max(16px, 1em) !important; box-sizing: border-box !important; } ';
-                css += 'img, iframe, video, table, pre { max-width: 100% !important; } ';
-                css += '.card, .surface-card, .profile-layout, .profile-main, .feed-container { box-sizing: border-box !important; } ';
-                css += '} ';
-                css += 'body { padding-bottom: max(16px, env(safe-area-inset-bottom)) !important; } ';
-
-                // Scoped Feed adjustments
-                if (path.indexOf('feed.php') !== -1) {
-                    css += '.global-feed-page .profile-sidebar { display: none !important; } ';
-                    css += '.global-feed-page .profile-layout { display: block !important; } ';
-                    css += '#feed, .feed-container { width: 100% !important; max-width: 100% !important; margin: 0 auto !important; } ';
-                }
-
-                // Scoped Profile adjustments: RESTORE sidebar and topbar, make section navigation responsive
-                if (path.indexOf('profile.php') !== -1) {
-                    css += '.profile-sidebar, .profile-topbar { display: block !important; visibility: visible !important; opacity: 1 !important; } ';
-                    css += '.profile-nav, .profile-tabs, .tabs, .nav-tabs { display: flex !important; flex-wrap: wrap !important; gap: 8px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; padding: 6px 0 !important; } ';
-                    css += '.profile-nav a, .profile-tabs a, .nav-tabs a { white-space: nowrap !important; } ';
-                    css += '@media (max-width: 768px) { ';
-                    css += '  .profile-layout, .profile-container { display: flex !important; flex-direction: column !important; width: 100% !important; } ';
-                    css += '  .profile-sidebar { width: 100% !important; max-width: 100% !important; margin-bottom: 16px !important; } ';
-                    css += '  .profile-main { width: 100% !important; max-width: 100% !important; } ';
-                    css += '} ';
-                }
-
-                // Calls overlay styling
-                css += '[data-call-incoming]:not([hidden]) { position: fixed !important; z-index: 2147483000 !important; } ';
-                css += '[data-call-active].is-open:not([hidden]) { position: fixed !important; z-index: 2147482999 !important; } ';
-
-                if (!existing) {
-                    var style = document.createElement('style');
-                    style.id = styleId;
-                    style.textContent = css;
-                    document.head.appendChild(style);
-                } else {
-                    existing.textContent = css;
-                }
-
-                // The website's browser-Push API cannot work inside Android WebView.
-                // Keep the site's other notification preferences, but send its native
-                // "enable Push" button through an origin-checked Android bridge.
-                if (!window.__leskovNativePushControls) {
-                    window.__leskovNativePushControls = true;
-                    document.addEventListener('click', function(ev) {
-                        var button = ev.target && ev.target.closest && ev.target.closest('button');
-                        if (!button || !/включить\s*push|enable\s*push|lülita\s*push/i.test((button.textContent||'').trim())) return;
-                        if (window.LeskovNativePush) {
-                            ev.preventDefault(); ev.stopImmediatePropagation();
-                            window.LeskovNativePush.postMessage('request');
-                        }
-                    }, true);
-                    var notice = function() {
-                        var nodes = document.querySelectorAll('p, span, small, div');
-                        for (var i = 0; i < nodes.length; i++) {
-                            var n = nodes[i];
-                            if (n.childElementCount === 0 && /этот браузер не поддерживает push|this browser does not support push/i.test(n.textContent || '')) {
-                                n.textContent = 'В Android-приложении Push включаются через «Ещё» → «Уведомления». Для доставки требуется подключённый Firebase.';
-                            }
-                        }
-                    };
-                    notice();
-                    // Feed and notifications can mutate hundreds of DOM nodes per second.
-                    // Debounce this compatibility check instead of scanning the whole page
-                    // for every mutation; the old observer could stall Chromium.
-                    var noticePending = false;
-                    var observer = new MutationObserver(function(){
-                        if (noticePending) return;
-                        noticePending = true;
-                        setTimeout(function(){ noticePending = false; notice(); }, 300);
-                    });
-                    if (document.body) observer.observe(document.body, {childList:true, subtree:true});
-                }
-
-                // If on auth.php and hash is #register, ensure registration tab is active
-                if (path.indexOf('auth.php') !== -1 && window.location.hash === '#register') {
-                    var regTabBtn = document.querySelector('[data-auth-tab="register"]');
-                    if (regTabBtn && regTabBtn.getAttribute('aria-selected') !== 'true') {
-                        regTabBtn.click();
-                    }
-                }
-
-            } catch(e) {}
-        })();
-    """.trimIndent()
-    webView.evaluateJavascript(jsScopedLayout, null)
+    val jsAppShell = webView.context.assets.open("leskov-app-shell.js").bufferedReader().use { it.readText() }
+    webView.evaluateJavascript(jsAppShell, null)
+    webView.evaluateJavascript("window.__leskovAppShell && window.__leskovAppShell.refresh();", null)
 }
 
-
-/** Refreshes the website's own player state after every PHP navigation. No second native
- * mini-player is mounted in Compose. The small status is inserted ONLY inside an existing
- * website music player, so the user always knows Media3 owns the active stream. */
-private fun publishNativeSessionToPage(webView: WebView) {
-    if (!isInternalUri(Uri.parse(webView.url.orEmpty()))) return
-    val native = LeskovNativeAudioService.state.value
-    val json = JSONObject()
-        .put("active", native.active)
-        .put("playing", native.playing)
-        .put("buffering", native.buffering)
-        .put("title", native.title)
-        .put("artist", native.artist)
-        .toString()
-    val js = """
-        (function(){
-          try {
-            var state = $json;
-            window.__leskovNativePlayback = state;
-            window.dispatchEvent(new CustomEvent('leskov:native-playback', {detail:state}));
-            if (window.__leskovAndroidAudio) window.__leskovAndroidAudio.renderNative();
-          }catch(e){}
-        })();
-    """.trimIndent()
-    webView.evaluateJavascript(js, null)
-}
 
 private fun isInternalUri(uri: Uri?): Boolean {
     if (uri == null) return false

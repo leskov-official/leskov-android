@@ -16,6 +16,12 @@ function app_mobile_push_credentials(): array {
     return $key;
 }
 
+// Authenticated device registration can report readiness without exposing credential details.
+function app_mobile_push_delivery_ready(): bool {
+    try { app_mobile_push_credentials(); return true; }
+    catch (Throwable $e) { return false; }
+}
+
 function app_mobile_push_schema(): void {
     db()->exec('CREATE TABLE IF NOT EXISTS mobile_push_devices (
         token_hash CHAR(64) CHARACTER SET ascii PRIMARY KEY,

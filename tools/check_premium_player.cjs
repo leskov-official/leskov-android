@@ -27,28 +27,17 @@ const root=path.resolve(__dirname,'..');
  await page.waitForFunction(()=>window.states.at(-1).positionMs>=5000);
  await page.evaluate(()=>window.__leskovAndroidAudio.command('next'));
  await page.waitForFunction(()=>window.states.at(-1).title==='Premium Two'&&window.states.at(-1).playing);
- const snapshot=await page.evaluate(()=>JSON.parse(window.__leskovAndroidAudio.snapshot()));assert.equal(snapshot.queueIndex,1);assert.equal(snapshot.queue.length,2);
  await page.evaluate(()=>p.media.remove());await page.waitForTimeout(100);await page.evaluate(()=>p.play());await page.waitForFunction(()=>!p.media.paused);await page.waitForTimeout(1600);
- assert.equal(await page.evaluate(()=>JSON.parse(window.__leskovAndroidAudio.snapshot()).title),'Premium Two');
+ assert.equal(await page.evaluate(()=>window.states.at(-1).title),'Premium Two');
  await page.evaluate(()=>window.__leskovAndroidAudio.command('pause'));await page.waitForFunction(()=>window.states.at(-1).playing===false);
- await page.evaluate(()=>{
-  window.nativeActions=[];window.LeskovNativePlayback={postMessage:s=>window.nativeActions.push(s)};
-  window.__leskovNativePlayback={active:true,playing:false,buffering:true,title:'Background track',artist:'LESKOV'};
-  window.__leskovAndroidAudio.renderNative();
- });
- assert.equal(await page.locator('#leskov-native-playback-badge').getAttribute('aria-busy'),'true');
- await page.locator('#leskov-native-playback-badge').click();
- assert.deepEqual(await page.evaluate(()=>window.nativeActions),['toggle']);
- await page.evaluate(()=>{window.__leskovNativePlayback.active=false;window.__leskovAndroidAudio.renderNative()});
- assert.equal(await page.locator('#leskov-native-playback-badge').count(),0);
- console.log('PASS real website Premium Player class + bridge: play, pause, resume, seek, next, queue, detached media, native status');
+ console.log('PASS real website Player: play, pause, resume, seek, next, detached media');
  // A second fixture runs the site's independent header engine, without LeskovPlayer.
  const siteResponse=await fetch('https://lesv.online/scripts/site.min.js');
  if(!siteResponse.ok)throw Error('Header engine unavailable: '+siteResponse.status);
  const headerScript=await siteResponse.text();
  const header=await b.newPage({viewport:{width:320,height:720}});
  const headerHtml=`<html lang="ru"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
- <body data-user-premium-active="1"><button data-header-player-toggle>Player</button>
+ <body data-user-premium-active="1"><main><h1>Test page</h1></main><button data-header-player-toggle>Player</button>
  <div id="headerPlayerPanel" class="header-player-panel" data-player-mode="sequential">
  <div class="header-player-dialog"><div class="header-player-shell"><div data-header-player data-player-mode="sequential">
  <audio src="/one.wav" preload="auto"></audio><img data-header-cover src="/cover.webp">
@@ -77,8 +66,17 @@ const root=path.resolve(__dirname,'..');
  await header.waitForFunction(()=>window.states.at(-1).positionMs>=5000);
  await header.evaluate(()=>window.__leskovAndroidAudio.command('next'));
  await header.waitForFunction(()=>window.states.at(-1).title==='Header Two'&&window.states.at(-1).playing);
- const headerSnap=await header.evaluate(()=>JSON.parse(window.__leskovAndroidAudio.snapshot()));
- assert.equal(headerSnap.queueIndex,1);assert.equal(headerSnap.queue.length,2);
- console.log('PASS real website header Premium engine + bridge: play, pause, resume, seek, next, queue');
+ await header.addScriptTag({content:fs.readFileSync(path.join(root,'app/src/main/assets/leskov-app-shell.js'),'utf8')});
+ await header.evaluate(()=>{window.originalAudio=window.__leskovHeaderPlayerAudio;window.originalDocument=document;});
+ assert.equal(await header.evaluate(()=>window.__leskovAppShell.navigate('https://lesv.online/discover.php')),'soft');
+ await header.waitForFunction(()=>location.pathname==='/discover.php' && !document.documentElement.classList.contains('is-soft-navigating'));
+ assert.equal(await header.evaluate(()=>document===window.originalDocument),true);
+ assert.equal(await header.evaluate(()=>window.originalAudio===window.__leskovHeaderPlayerAudio),true);
+ assert.equal(await header.evaluate(()=>window.originalAudio.paused),false);
+ assert.equal(await header.locator('#leskov-native-playback-badge').count(),0);
+ await header.evaluate(()=>history.back());
+ await header.waitForFunction(()=>location.pathname==='/header-fixture' && !document.documentElement.classList.contains('is-soft-navigating'));
+ assert.equal(await header.evaluate(()=>window.originalAudio===window.__leskovHeaderPlayerAudio && !window.originalAudio.paused),true);
+ console.log('PASS website header engine: play, pause, resume, seek, next; native-tab navigation and Back retain the SAME playing audio and document');
  await b.close();
 })().catch(e=>{console.error(e);process.exit(1)});

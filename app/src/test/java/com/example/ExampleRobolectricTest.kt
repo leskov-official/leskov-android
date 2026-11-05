@@ -295,12 +295,12 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `native handoff validates HTTPS and exact first-party domain`() {
-    assertTrue(com.example.media.LeskovNativeAudioService.isAllowedAudioUri(android.net.Uri.parse("https://lesv.online/tracks/a.mp3")))
-    assertFalse(com.example.media.LeskovNativeAudioService.isAllowedAudioUri(android.net.Uri.parse("http://lesv.online/tracks/a.mp3")))
-    assertFalse(com.example.media.LeskovNativeAudioService.isAllowedAudioUri(android.net.Uri.parse("https://lesv.online.evil.test/tracks/a.mp3")))
-    assertFalse(com.example.media.LeskovNativeAudioService.isAllowedAudioUri(android.net.Uri.parse("https://user:pass@lesv.online/tracks/a.mp3")))
-    assertFalse(com.example.media.LeskovNativeAudioService.isAllowedAudioUri(android.net.Uri.parse("blob:https://lesv.online/a.mp3")))
+  fun `web navigation validates HTTPS and exact first-party domain`() {
+    assertTrue(com.example.web.WebNavigation.isTrustedUri(android.net.Uri.parse("https://lesv.online/tracks/a.mp3")))
+    assertFalse(com.example.web.WebNavigation.isTrustedUri(android.net.Uri.parse("http://lesv.online/tracks/a.mp3")))
+    assertFalse(com.example.web.WebNavigation.isTrustedUri(android.net.Uri.parse("https://lesv.online.evil.test/tracks/a.mp3")))
+    assertFalse(com.example.web.WebNavigation.isTrustedUri(android.net.Uri.parse("https://user:pass@lesv.online/tracks/a.mp3")))
+    assertFalse(com.example.web.WebNavigation.isTrustedUri(android.net.Uri.parse("blob:https://lesv.online/a.mp3")))
   }
 
   @Test

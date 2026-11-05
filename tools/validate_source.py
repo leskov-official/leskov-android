@@ -67,24 +67,21 @@ for asset in (root/'app/src/main/assets').glob('*.js'):
  check(f'JS asset syntax {asset.name}',r.returncode==0)
 r=subprocess.run(['node',str(root/'tools/test_player_bridge.js')],capture_output=True,text=True,timeout=10)
 check('Premium player bridge regressions '+r.stdout.strip(),r.returncode==0)
-# LESKOV 3.1 regression checks (static evidence; not a claim of Android compilation).
-from pathlib import Path as _P
-handoff=(root/'app/src/main/java/com/example/media/LeskovAudioHandoff.kt').read_text()
-check('Empty audio source rejected before creating Media3 URL', 'if(!raw) return null;' in handoff)
-check('WebRTC streams are never transferred as music', 'audio.srcObject' in handoff)
-check('Chromium playback is paused before launching Media3',
-      handoff.index('webView.evaluateJavascript(pauseJs)') < handoff.index('LeskovNativeAudioService.handoff('))
+r=subprocess.run(['node',str(root/'tools/test_app_shell.js')],capture_output=True,text=True,timeout=10)
+check('App shell regressions '+r.stdout.strip(),r.returncode==0)
+# The web engine remains the only music owner across navigation.
+check('Calls excluded from music notifications', 'a.srcObject' in bridge and 'call[_-]?ringtone' in bridge)
+check('Second playback service removed', 'LeskovNativeAudioService' not in manifest and not (root/'app/src/main/java/com/example/media/LeskovNativeAudioService.kt').exists())
+check('No playback badge injected', "createElement('button')" not in bridge)
 main=(root/'app/src/main/java/com/example/MainActivity.kt').read_text()
 check('System status bar inset protects web content', '.windowInsetsPadding(WindowInsets.statusBars)' in main)
 check('Bottom navigation responds to IME', 'keyboardVisible' in main and 'WindowInsets.ime' in main)
 check('Guest gate and offline overlays animate', main.count('AnimatedVisibility(') >= 4)
 check('Runtime web media grant checks current first-party page', 'isTrustedCurrentPage()' in main)
 nav=(root/'app/src/main/java/com/example/ui/components/LeskovBottomBar.kt').read_text()
-check('Animated nav selection + language transitions', 'Crossfade(' in nav and 'animateDpAsState(' in nav)
+check('Compact six-tab navigation without scrolling', 'animateColorAsState(' in nav and 'horizontalScroll(' not in nav and '.weight(1f)' in nav)
 auth=(root/'app/src/main/java/com/example/ui/components/LeskovAuthGate.kt').read_text()
 check('Animated auth button feedback', 'collectIsPressedAsState' in auth and '.scale(loginScale)' in auth)
-mini=(root/'app/src/main/java/com/example/ui/components/LeskovMiniPlayer.kt').read_text()
-check('Media buffering feedback rendered', 'state.buffering' in mini and 'LinearProgressIndicator(' in mini)
 check('Hidden popup WebView no longer leaks', 'onCreateWindow(' not in web and 'setSupportMultipleWindows(false)' in web)
 check('FCM backend integration contract accompanies Android sources',
       (root/'docs/BACKEND_FCM_CONTRACT.md').is_file())
@@ -98,17 +95,12 @@ try:
  with open(root/'.github/workflows/android.yml') as _f: _flow=yaml.safe_load(_f)
  check('GitHub Actions workflow parses', 'jobs' in _flow)
 except Exception as _e:check('GitHub Actions workflow parses: '+str(_e),False)
-try:
- _result=subprocess.run(['node',str(root/'tools/test_audio_snapshot.js')],capture_output=True,text=True,timeout=10)
- check('Audio eligibility smoke test '+_result.stdout.strip(),_result.returncode==0)
-except Exception as _e:check('Audio eligibility smoke test: '+str(_e),False)
-
 # LESKOV 3.3 screen/renderer/media regressions.
 check('No root CSS zoom that breaks fixed modals', 'html { zoom:' not in web)
 check('WebView renderer death is handled', 'onRenderProcessGone(' in web and 'activity.recreate()' in web)
-check('Native playback state reaches newly loaded PHP pages', 'publishNativeSessionToPage(it)' in web)
+check('Site soft navigation used for native tabs', '__leskovNavigateWithPlayer' in (root/'app/src/main/assets/leskov-app-shell.js').read_text())
 check('Media bridge supplies position and duration', 'positionMs:' in bridge and 'durationMs:' in bridge)
-check('Media3 state is never displayed as a second native bottom bar', 'LeskovMiniPlayer(' not in main)
+check('No second native player or handoff', 'LeskovMiniPlayer(' not in main and 'AudioHandoff' not in main)
 check('Media notification publishes real duration', 'METADATA_KEY_DURATION' in media)
 check('Media playlist arrows depend on site capabilities', 'if (canNext) builder.addAction' in media)
 check('Artwork bitmaps are downsampled for memory safety', 'inJustDecodeBounds = true' in media and '512' in media)

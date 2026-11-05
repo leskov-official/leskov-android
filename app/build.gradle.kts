@@ -26,8 +26,8 @@ android {
     applicationId = "com.aistudio.leskov.musix"
     minSdk = 26
     targetSdk = 36
-    versionCode = 8
-    versionName = "3.4.0"
+    versionCode = 9
+    versionName = "3.4.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -99,8 +99,6 @@ dependencies {
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.core.splashscreen)
   implementation(libs.androidx.webkit)
-  implementation(libs.androidx.media3.exoplayer)
-  implementation(libs.androidx.media3.session)
   implementation(libs.androidx.datastore.preferences)
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)

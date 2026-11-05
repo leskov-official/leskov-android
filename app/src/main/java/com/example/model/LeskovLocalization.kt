@@ -63,22 +63,25 @@ object LeskovStrings {
         AppLanguage.EN -> "Permissions and system notifications"
     }
 
-    fun notificationStatus(lang: AppLanguage, status: String): String = when (status) {
-        "permission_denied" -> when (lang) {
-            AppLanguage.RU -> "Уведомления не разрешены в Android"
-            AppLanguage.ET -> "Androidi teavitused pole lubatud"
-            AppLanguage.EN -> "Android notifications are disabled"
+    fun finishCallFirst(lang: AppLanguage): String = when (lang) {
+        AppLanguage.RU -> "Завершите звонок перед переходом на другую страницу"
+        AppLanguage.ET -> "Lõpeta kõne enne teisele lehele liikumist"
+        AppLanguage.EN -> "End the call before opening another page"
+    }
+
+    fun notificationStatus(lang: AppLanguage, status: String): String {
+        val messages = when (status) {
+            "permission_denied" -> listOf("Уведомления запрещены в настройках Android", "Androidi teavitused on keelatud", "Notifications are disabled in Android settings")
+            "firebase_missing" -> listOf("В этой сборке отсутствует конфигурация Firebase", "Selles versioonis puudub Firebase'i seadistus", "This build has no Firebase configuration")
+            "server_unconfigured" -> listOf("Устройство зарегистрировано. На сервере ещё не настроена отправка Firebase", "Seade on registreeritud. Firebase'i saatmine pole serveris seadistatud", "Device registered. Firebase sending is not configured on the server")
+            "login_required" -> listOf("Войдите в аккаунт, чтобы подключить уведомления", "Teavituste ühendamiseks logi sisse", "Sign in to connect notifications")
+            "token_failed" -> listOf("Не удалось получить токен Firebase. Проверьте Google Play и соединение", "Firebase'i tokenit ei saadud. Kontrolli Google Playd ja ühendust", "Could not obtain a Firebase token. Check Google Play and your connection")
+            "connecting" -> listOf("Подключаем уведомления…", "Ühendame teavitusi…", "Connecting notifications…")
+            "ready" -> listOf("Устройство зарегистрировано для уведомлений", "Seade on teavituste jaoks registreeritud", "Device registered for notifications")
+            "webview_unsupported" -> listOf("Обновите Android System WebView для подключения уведомлений", "Teavituste ühendamiseks uuenda Android System WebView'd", "Update Android System WebView to connect notifications")
+            else -> listOf("Не удалось зарегистрировать уведомления на сервере. Повторите попытку", "Teavituste registreerimine serveris ebaõnnestus. Proovi uuesti", "Could not register notifications on the server. Try again")
         }
-        "firebase_missing" -> when (lang) {
-            AppLanguage.RU -> "Для push нужна реальная конфигурация Firebase"
-            AppLanguage.ET -> "Push-teavitused vajavad Firebase'i seadistust"
-            AppLanguage.EN -> "Push requires a real Firebase configuration"
-        }
-        else -> when (lang) {
-            AppLanguage.RU -> "Разрешение получено. Для доставки push нужна серверная интеграция"
-            AppLanguage.ET -> "Luba antud. Push vajab ka serveri seadistust"
-            AppLanguage.EN -> "Permission granted. Push also requires server integration"
-        }
+        return messages[when (lang) { AppLanguage.RU -> 0; AppLanguage.ET -> 1; AppLanguage.EN -> 2 }]
     }
 
     fun navLabel(tabRoute: String, lang: AppLanguage): String {

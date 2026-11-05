@@ -15,7 +15,6 @@ import com.example.model.AppLanguage
 import com.example.model.LeskovConstants
 import com.example.model.LeskovStrings
 import com.example.push.FcmTokenManager
-import com.example.media.LeskovNativeAudioService
 import com.example.media.LeskovMediaService
 import com.example.ui.theme.LeskovBackground
 import com.example.ui.theme.LeskovError
@@ -57,7 +56,6 @@ fun LeskovDeleteCookiesDialog(
             TextButton(
                 onClick = {
                     try {
-                        LeskovNativeAudioService.stop(context)
                         LeskovMediaService.stop(context)
                         val logoutUrl = "${LeskovConstants.BASE_URL}auth.php?logout=1&lang=${language.code}"
                         FcmTokenManager.unregisterTokenOnServer(context, webView) {

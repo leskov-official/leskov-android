@@ -109,7 +109,6 @@
     function onEvent(e) {
         if (!eligible(e.target) || seen.has(e)) return;
         seen.add(e);
-        if (e.type === 'play') post({type:'web_start'});
         schedule();
     }
     var events = ['play','playing','pause','ended','error','loadedmetadata','durationchange','seeked','ratechange'];
@@ -120,21 +119,7 @@
             events.forEach(function(name) { item.media.addEventListener(name, onEvent); });
         });
         report();
-        renderNative();
     }
-    // Release Media3 before a user-started website track requests Chromium audio focus.
-    // Waiting only for the later `play` event can cause a Play -> Pause focus race.
-    document.addEventListener('pointerdown',function(e) {
-        var button = e.target && e.target.closest && e.target.closest(
-            '.leskov-player__btn--play, .leskov-player__center-btn[data-action="play"], [data-playlist-index], [data-header-play], [data-header-player-track], [data-header-next], [data-header-prev]');
-        if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return;
-        var root = button.closest(playerSelector);
-        if (!root) return;
-        var media = root.querySelector('audio');
-        if (eligible(media) || candidates().some(function(item) { return item.player && item.player.element === root; })) {
-            post({type:'web_start'});
-        }
-    },true);
     // Capture catches media inserted and played before the next discovery, including autoplay.
     events.forEach(function(name) { document.addEventListener(name, onEvent, true); });
     ['play','pause','ended','statechange','trackchange','playlistchange'].forEach(function(name) {
@@ -158,58 +143,7 @@
         schedule();
         return true;
     }
-    function snapshot() {
-        var item = current();
-        if (!item || item.media.paused || item.media.ended) return null;
-        var raw = item.media.currentSrc || item.media.getAttribute('src');
-        var u = new URL(raw,document.baseURI);
-        // Blob/MSE playback stays with the site's player; only authorized HTTPS can be handed off.
-        if (u.protocol !== 'https:' || u.origin !== location.origin) return null;
-        var state = details(item);
-        var result = {url:u.href,title:state.title,artist:state.artist,artwork:state.artwork,position:state.positionMs};
-        var p = item.player;
-        // Copy only the queue already supplied by the website, with bounded IPC size.
-        // Server authorization is still required for each stream URL.
-        if (p && Array.isArray(p.playlist) && p.playlist.length <= 100) {
-            var queue = p.playlist.map(function(track) {
-                try {
-                    var url = new URL(track.src,document.baseURI);
-                    if (!track.src || url.origin !== location.origin || url.protocol !== 'https:' ||
-                        url.username || url.password || url.href.length > 4096 ||
-                        /(?:call[_-]?ringtone|notification[_-]?(?:sound|chime))/i.test(url.pathname)) return null;
-                    return {url:url.href,title:String(track.title || 'LESKOV').slice(0,160),
-                        artist:String(track.artist || 'Igor Leskov').slice(0,160),artwork:safeArtwork(track.cover || '').slice(0,1500)};
-                } catch (_) { return null; }
-            });
-            var index = Number.isInteger(p.playlistIndex) ? p.playlistIndex : -1;
-            if (queue.length && queue.every(Boolean) && queue[index] && queue[index].url === u.href) {
-                result.queue = queue; result.queueIndex = index;
-                result.mode = ['repeat','shuffle'].includes(p.mode) ? p.mode : 'sequential';
-            }
-        }
-        return JSON.stringify(result);
-    }
-    function renderNative() {
-        var state = window.__leskovNativePlayback;
-        var badge = document.getElementById('leskov-native-playback-badge');
-        if (!state || !state.active) { if (badge) badge.remove(); return; }
-        var player = document.querySelector('#headerPlayerPanel [data-header-player]') || document.querySelector(playerSelector);
-        if (!player || !window.LeskovNativePlayback) return;
-        if (!badge) {
-            badge = document.createElement('button');
-            badge.type = 'button'; badge.id = 'leskov-native-playback-badge';
-            badge.addEventListener('click',function(e) {
-                e.preventDefault(); e.stopPropagation(); window.LeskovNativePlayback.postMessage('toggle');
-            });
-        }
-        if (!player.contains(badge)) player.appendChild(badge);
-        var text = (state.buffering ? '◌ ' : state.playing ? '⏸ ' : '▶ ') + state.title + ' · ' + state.artist;
-        if (badge.textContent !== text) badge.textContent = text;
-        badge.setAttribute('aria-pressed',String(state.playing));
-        badge.setAttribute('aria-busy',String(!!state.buffering));
-    }
-    window.__leskovAndroidAudio = {snapshot:snapshot, command:command, report:report, renderNative:renderNative};
-    window.addEventListener('leskov:native-playback',renderNative);
+    window.__leskovAndroidAudio = {command:command, report:report};
     window.addEventListener('pageshow',discover);
     document.addEventListener('visibilitychange',discover);
     // Covers detached Premium media and asynchronously mounted players, without patching site methods.

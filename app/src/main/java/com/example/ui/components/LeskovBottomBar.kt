@@ -1,24 +1,7 @@
 package com.example.ui.components
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.Crossfade
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,176 +12,80 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.AppLanguage
 import com.example.model.LESKOV_NAV_TABS
 import com.example.model.LeskovStrings
-import com.example.model.NavigationTab
 import com.example.ui.theme.LeskovAccentGlow
 import com.example.ui.theme.LeskovSurface
 import com.example.ui.theme.LeskovSurfaceSelected
 import com.example.ui.theme.LeskovTextNavInactive
 
-/** A single native navigation surface; no additional floating menu or WebView top bar. */
+/** Six equal tabs fit the screen; selected tabs never move out of view. */
 @Composable
-fun LeskovBottomBar(
-    selectedIndex: Int,
-    language: AppLanguage,
-    onTabSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = LeskovSurface,
-        shadowElevation = 18.dp,
-        tonalElevation = 3.dp
-    ) {
-        Column {
-            HorizontalDivider(color = Color.White.copy(alpha = 0.075f), thickness = 1.dp)
-            BoxWithConstraints(Modifier.widthIn(max = 720.dp).fillMaxWidth().align(Alignment.CenterHorizontally)) {
-                val fontScale = LocalDensity.current.fontScale
-                val itemWidth = maxOf((maxWidth - 16.dp) / LESKOV_NAV_TABS.size,
-                    64.dp * fontScale.coerceIn(1f, 1.6f))
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .selectableGroup()
-                        .navigationBarsPadding()
-                        .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 6.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+fun LeskovBottomBar(selectedIndex: Int, language: AppLanguage,
+                    onTabSelected: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val density = LocalDensity.current
+    // Keep this small navigation strip stable at large system fonts. Full labels remain
+    // available to TalkBack; page content can still be magnified with WebView pinch zoom.
+    CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale.coerceIn(0.85f, 1.15f))) {
+        Surface(modifier = modifier.fillMaxWidth(), color = LeskovSurface, tonalElevation = 2.dp) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
+                Row(Modifier.widthIn(max = 640.dp).fillMaxWidth().navigationBarsPadding()
+                    .selectableGroup().padding(horizontal = 4.dp, vertical = 3.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly) {
                     LESKOV_NAV_TABS.forEachIndexed { index, tab ->
-                        LeskovNavItem(
-                            tab = tab,
-                            label = LeskovStrings.navLabel(tab.route, language),
-                            isSelected = selectedIndex == index,
-                            onClick = { onTabSelected(index) },
-                            modifier = Modifier.width(itemWidth).testTag("nav_tab_${tab.route}")
-                        )
+                        val selected = index == selectedIndex
+                        val label = LeskovStrings.navLabel(tab.route, language)
+                        val tint by animateColorAsState(if (selected) LeskovAccentGlow else LeskovTextNavInactive,
+                            label = "navTint")
+                        Column(Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(12.dp))
+                            .semantics { contentDescription = label }
+                            .selectable(selected = selected, role = Role.Tab, onClick = { onTabSelected(index) })
+                            .testTag("nav_tab_${tab.route}"),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center) {
+                            Box(Modifier.size(width = 36.dp, height = 24.dp).clip(RoundedCornerShape(12.dp))
+                                .background(if (selected) LeskovSurfaceSelected else Color.Transparent),
+                                contentAlignment = Alignment.Center) {
+                                Icon(if (selected) tab.selectedIcon else tab.unselectedIcon,
+                                    contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.height(2.dp))
+                            Text(label, color = tint, fontSize = 9.5.sp, lineHeight = 12.sp,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                 }
             }
-        }
-    }
-}
-
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-@Composable
-private fun LeskovNavItem(
-    tab: NavigationTab,
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val haptics = LocalHapticFeedback.current
-    val bringIntoView = remember { BringIntoViewRequester() }
-    LaunchedEffect(isSelected) {
-        if (isSelected) {
-            androidx.compose.runtime.withFrameNanos { }
-            bringIntoView.bringIntoView()
-        }
-    }
-    val background by animateColorAsState(
-        if (isSelected) LeskovSurfaceSelected else Color.Transparent,
-        label = "navBackground"
-    )
-    val content by animateColorAsState(
-        if (isSelected) Color(0xFFF6F3FF) else LeskovTextNavInactive,
-        label = "navText"
-    )
-    val iconTint by animateColorAsState(
-        if (isSelected) LeskovAccentGlow else LeskovTextNavInactive,
-        label = "navIcon"
-    )
-    val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.09f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium), label = "navScale"
-    )
-    val indicatorWidth by animateDpAsState(
-        targetValue = if (isSelected) 18.dp else 0.dp,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMedium), label = "navIndicator"
-    )
-    Box(
-        modifier = modifier
-            .bringIntoViewRequester(bringIntoView)
-            .heightIn(min = 68.dp)
-            .clip(RoundedCornerShape(15.dp))
-            .background(background)
-            .semantics { selected = isSelected }
-            .clickable(
-                role = Role.Tab,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = true, color = LeskovAccentGlow),
-                onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onClick()
-                }
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = if (isSelected) tab.selectedIcon else tab.unselectedIcon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(24.dp).scale(scale)
-            )
-            Spacer(Modifier.height(3.dp))
-            Crossfade(targetState = label, label = "navTranslation") { currentLabel ->
-                Text(
-                    text = currentLabel,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 11.sp,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                        letterSpacing = 0.sp,
-                        color = content
-                    ),
-                    maxLines = 2,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 3.dp),
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(Modifier.height(3.dp))
-            Box(
-                Modifier
-                    .width(indicatorWidth)
-                    .height(2.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(if (isSelected) LeskovAccentGlow else Color.Transparent)
-            )
         }
     }
 }
