@@ -238,8 +238,9 @@ object FcmTokenManager {
                           headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
                           signal:abort.signal,body:body});
                         const result=await resp.json();
+                        const needsDelivery=${action == "register"};
                         status=resp.ok && result.ok ?
-                          (result.delivery_ready===true ? 'status:200' : 'server_unconfigured') : 'status:'+resp.status;
+                          (!needsDelivery || result.delivery_ready===true ? 'status:200' : 'server_unconfigured') : 'status:'+resp.status;
                       }
                     }
                   }catch(e){status='network_error';}

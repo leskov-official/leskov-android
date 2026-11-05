@@ -100,7 +100,7 @@
     function report() {
         timer = null;
         var item = current();
-        // An idle new page must not overwrite an independent Media3 session.
+        // Idle pages do not create a music notification before a track actually plays.
         if (!item) return;
         var state = details(item), key = JSON.stringify(state);
         if (key !== previous) { previous = key; post(state); }
