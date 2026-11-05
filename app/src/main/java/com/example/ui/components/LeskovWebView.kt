@@ -22,6 +22,7 @@ import org.json.JSONObject
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
+import android.webkit.WebResourceResponse
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -46,6 +47,7 @@ import com.example.media.LeskovAudioHandoff
 import com.example.media.LeskovNativeAudioService
 import com.example.push.FcmTokenManager
 import com.example.model.LeskovConstants
+import com.example.viewmodel.PageFailure
 import com.example.viewmodel.LeskovViewModel
 
 // Audio state messages are received via androidx.webkit WebMessageListener below.
@@ -60,7 +62,8 @@ fun LeskovWebView(
     onPermissionRequested: (PermissionRequest) -> Unit,
     onNativePushRequested: () -> Unit,
     modifier: Modifier = Modifier,
-    onWebViewCreated: (WebView) -> Unit = {}
+    onWebViewCreated: (WebView) -> Unit = {},
+    fullscreenVideoHost: FullscreenVideoHost? = null
 ) {
     val context = LocalContext.current
 
@@ -174,6 +177,7 @@ fun LeskovWebView(
             webViewClient = object : WebViewClient() {
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                     super.onPageStarted(view, url, favicon)
+                    url?.let { viewModel.onPageStarted(it) }
                     // Catch the server logout even if it immediately redirects to auth.php.
                     if (url?.contains("auth.php?logout=") == true) viewModel.onUrlChanged(url)
                 }
@@ -208,7 +212,7 @@ fun LeskovWebView(
                         Log.d("LeskovNavigation", "Loaded PHP route: ${Uri.parse(it).path}")
                         viewModel.onUrlChanged(it)
                     }
-                    view?.let {
+                    view?.takeIf { isInternalUri(Uri.parse(url.orEmpty())) && !viewModel.uiState.value.isOffline }?.let {
                         viewModel.setCanGoBack(it.canGoBack())
                         applyMobileAppAdaptations(it, viewModel)
                         publishNativeSessionToPage(it)
@@ -218,7 +222,13 @@ fun LeskovWebView(
                 override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                     super.onReceivedError(view, request, error)
                     if (request?.isForMainFrame == true) {
-                        viewModel.setOffline(true)
+                        viewModel.onPageFailed(PageFailure.CONNECTION)
+                    }
+                }
+
+                override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, response: WebResourceResponse?) {
+                    if (request?.isForMainFrame == true && (response?.statusCode ?: 0) >= 400) {
+                        viewModel.onPageFailed(PageFailure.SERVER)
                     }
                 }
 
@@ -241,11 +251,21 @@ fun LeskovWebView(
                 override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: android.net.http.SslError?) {
                     // Strictly cancel untrusted SSL certificates to safeguard credentials
                     handler?.cancel()
-                    viewModel.setOffline(true)
+                    viewModel.onPageFailed(PageFailure.SECURITY)
                 }
             }
 
             webChromeClient = object : WebChromeClient() {
+                override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                    if (view != null && callback != null && fullscreenVideoHost != null) {
+                        fullscreenVideoHost.show(view, callback)
+                    } else callback?.onCustomViewHidden()
+                }
+
+                override fun onHideCustomView() {
+                    fullscreenVideoHost?.hide()
+                }
+
                 override fun onProgressChanged(view: WebView?, newProgress: Int) {
                     super.onProgressChanged(view, newProgress)
                     viewModel.onProgressChanged(newProgress)
@@ -317,6 +337,7 @@ fun LeskovWebView(
         }
 
         onDispose {
+            fullscreenVideoHost?.hide()
             LeskovMediaService.onMediaActionRequested = null
             CookieManager.getInstance().flush()
             runCatching { webView.stopLoading() }

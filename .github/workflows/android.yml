@@ -45,6 +45,9 @@ jobs:
       - name: Static source validation
         run: python3 tools/validate_source.py
 
+      - name: Test audio handoff contract
+        run: node tools/test_audio_snapshot.js
+
       - name: Configure optional REAL Firebase project
         shell: bash
         env:

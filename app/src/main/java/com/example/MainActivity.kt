@@ -49,7 +49,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,6 +87,8 @@ class MainActivity : ComponentActivity() {
     private val viewModel: LeskovViewModel by viewModels()
     private var webViewRef: WebView? = null
     private var navigationSerial = 0
+    private var restoredWebState: Bundle? = null
+    private val fullscreenVideoHost by lazy { com.example.ui.components.FullscreenVideoHost(this) }
 
     private var pendingFilePathCallback: ValueCallback<Array<Uri>>? = null
     private var pendingPermissionRequest: PermissionRequest? = null
@@ -112,17 +114,22 @@ class MainActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        restoredWebState = savedInstanceState?.getBundle("web_state")
 
         val initialUrl = extractInternalUrl(intent) ?: LeskovConstants.buildUrl(LeskovConstants.HOME_PATH, AppLanguage.RU)
 
         setContent {
             MyApplicationTheme {
                 LeskovApp(
+                    fullscreenVideoHost = fullscreenVideoHost,
                     viewModel = viewModel,
                     initialUrl = initialUrl,
                     onSetWebView = { webView ->
                         webViewRef = webView
-                        webView.loadUrl(initialUrl)
+                        val restored = restoredWebState?.let { webView.restoreState(it) }
+                        restoredWebState = null
+                        if (restored == null) webView.loadUrl(initialUrl)
+                        else webView.url?.let { viewModel.onUrlChanged(it) }
                     },
                     getWebView = { webViewRef },
                     onOpenFileChooser = { callback, params ->
@@ -224,12 +231,21 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        webViewRef?.let { page ->
+            val state = Bundle()
+            if (page.saveState(state) != null) outState.putBundle("web_state", state)
+        }
+        super.onSaveInstanceState(outState)
+    }
+
     override fun onPause() {
         super.onPause()
         CookieManager.getInstance().flush()
     }
 
     override fun onDestroy() {
+        fullscreenVideoHost.hide()
         pendingFilePathCallback?.onReceiveValue(null)
         pendingFilePathCallback = null
         pendingPermissionRequest?.deny()
@@ -255,6 +271,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun LeskovApp(
+    fullscreenVideoHost: com.example.ui.components.FullscreenVideoHost? = null,
     viewModel: LeskovViewModel,
     initialUrl: String,
     onSetWebView: (WebView) -> Unit,
@@ -263,8 +280,8 @@ fun LeskovApp(
     onRequestMediaPermission: (PermissionRequest) -> Unit,
     onNavigate: (String) -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val nativeAudio by LeskovNativeAudioService.state.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val nativeAudio by LeskovNativeAudioService.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -300,7 +317,9 @@ fun LeskovApp(
 
     // Smart Back Handler
     BackHandler(enabled = true) {
-        if (uiState.showMoreSheet) {
+        if (fullscreenVideoHost?.isActive == true) {
+            fullscreenVideoHost.hide()
+        } else if (uiState.showMoreSheet) {
             viewModel.toggleMoreSheet(false)
         } else if (uiState.showAuthGate) {
             val homeUrl = viewModel.dismissAuthGateToHome()
@@ -384,6 +403,7 @@ fun LeskovApp(
                     }
                 },
                 onWebViewCreated = onSetWebView,
+                fullscreenVideoHost = fullscreenVideoHost,
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag("leskov_webview")
@@ -434,9 +454,9 @@ fun LeskovApp(
             ) {
                 LeskovOfflineView(
                     language = uiState.language,
+                    failure = uiState.pageFailure,
                     onRetry = {
-                        viewModel.setOffline(false)
-                        getWebView()?.reload()
+                        onNavigate(viewModel.retryPage())
                     },
                     modifier = Modifier.testTag("offline_view")
                 )

@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+enum class PageFailure { CONNECTION, SERVER, SECURITY }
+
 data class LeskovUiState(
     val currentUrl: String = LeskovConstants.buildUrl(LeskovConstants.HOME_PATH, AppLanguage.RU),
     val selectedTabIndex: Int = 0,
@@ -26,6 +28,8 @@ data class LeskovUiState(
     val loadingProgress: Int = 0,
     val isLoading: Boolean = true,
     val isOffline: Boolean = false,
+    val pageFailure: PageFailure? = null,
+    val retryUrl: String = LeskovConstants.buildUrl(LeskovConstants.HOME_PATH, AppLanguage.RU),
     val canGoBack: Boolean = false,
     val showMoreSheet: Boolean = false,
     val statusMessage: String? = null
@@ -68,6 +72,8 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
         val uri = try { Uri.parse(url) } catch (_: Exception) { null }
         val path = uri?.path?.trimStart('/') ?: ""
 
+        if (uri == null || !isTrustedPage(uri)) return
+
         // Check language from URL query parameter
         val langParam = uri?.getQueryParameter("lang")
         if (!langParam.isNullOrBlank()) {
@@ -99,7 +105,7 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
                 showAuthGate = if (isAuthScreen || isLegalScreen) false else current.showAuthGate,
                 isLoggedIn = if (isLogout) false else current.isLoggedIn,
                 currentUserId = if (isLogout) 0 else current.currentUserId,
-                isOffline = false
+                isOffline = current.pageFailure != null
             )
         }
     }
@@ -120,15 +126,38 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
         _uiState.update {
             it.copy(
                 loadingProgress = progress,
-                isLoading = progress < 100,
-                isOffline = if (progress > 20) false else it.isOffline
+                isLoading = progress < 100 && it.pageFailure == null,
+                isOffline = it.pageFailure != null
             )
         }
     }
 
     fun setOffline(offline: Boolean) {
-        _uiState.update { it.copy(isOffline = offline) }
+        if (offline) onPageFailed(PageFailure.CONNECTION)
+        else _uiState.update { it.copy(isOffline = false, pageFailure = null) }
     }
+
+    fun onPageStarted(url: String) {
+        val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return
+        if (!isTrustedPage(uri)) return
+        _uiState.update { it.copy(retryUrl = url, pageFailure = null,
+            isOffline = false, isLoading = true, loadingProgress = 0) }
+    }
+
+    fun onPageFailed(failure: PageFailure) {
+        _uiState.update { it.copy(pageFailure = failure, isOffline = true, isLoading = false) }
+    }
+
+    fun retryPage(): String {
+        val target = _uiState.value.retryUrl
+        onPageStarted(target)
+        return target
+    }
+
+    private fun isTrustedPage(uri: Uri): Boolean =
+        uri.scheme.equals("https", true) && uri.host.equals(LeskovConstants.HOST, true) &&
+            uri.userInfo == null && (uri.port == -1 || uri.port == 443)
+
 
     fun setCanGoBack(canGoBack: Boolean) {
         _uiState.update { it.copy(canGoBack = canGoBack) }

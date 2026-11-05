@@ -302,4 +302,49 @@ class ExampleRobolectricTest {
     assertFalse(com.example.media.LeskovNativeAudioService.isAllowedAudioUri(android.net.Uri.parse("https://user:pass@lesv.online/tracks/a.mp3")))
     assertFalse(com.example.media.LeskovNativeAudioService.isAllowedAudioUri(android.net.Uri.parse("blob:https://lesv.online/a.mp3")))
   }
+
+  @Test
+  fun `failed navigation survives progress and page finished and retries the intended route`() {
+    val viewModel = LeskovViewModel(app)
+    val target = "https://lesv.online/search.php?q=ambient&lang=en"
+    viewModel.onPageStarted(target)
+    viewModel.onPageFailed(com.example.viewmodel.PageFailure.CONNECTION)
+    viewModel.onProgressChanged(100)
+    viewModel.onUrlChanged(target)
+    assertTrue(viewModel.uiState.value.isOffline)
+    assertFalse(viewModel.uiState.value.isLoading)
+    assertEquals(target, viewModel.retryPage())
+    assertFalse(viewModel.uiState.value.isOffline)
+    assertTrue(viewModel.uiState.value.isLoading)
+    assertNull(viewModel.uiState.value.pageFailure)
+  }
+
+  @Test
+  fun `server and certificate errors do not masquerade as lost internet`() {
+    val viewModel = LeskovViewModel(app)
+    for (failure in listOf(com.example.viewmodel.PageFailure.SERVER, com.example.viewmodel.PageFailure.SECURITY)) {
+      viewModel.onPageStarted("https://lesv.online/feed.php")
+      viewModel.onPageFailed(failure)
+      viewModel.onProgressChanged(100)
+      assertEquals(failure, viewModel.uiState.value.pageFailure)
+      assertTrue(viewModel.uiState.value.isOffline)
+      for (language in AppLanguage.entries) {
+        assertFalse(LeskovStrings.pageErrorTitle(language, failure) == LeskovStrings.offlineTitle(language))
+      }
+    }
+  }
+
+  @Test
+  fun `untrusted navigation cannot replace retry target or user state`() {
+    val viewModel = LeskovViewModel(app)
+    viewModel.onUserSessionDetected(42)
+    val original = viewModel.uiState.value.currentUrl
+    for (url in listOf("https://lesv.online.evil.test/auth.php?logout=1", "http://lesv.online/auth.php?logout=1", "https://lesv.online:8443/auth.php?logout=1")) {
+      viewModel.onUrlChanged(url)
+      viewModel.onPageStarted(url)
+      assertEquals(original, viewModel.uiState.value.currentUrl)
+      assertEquals(original, viewModel.uiState.value.retryUrl)
+      assertTrue(viewModel.uiState.value.isLoggedIn)
+    }
+  }
 }

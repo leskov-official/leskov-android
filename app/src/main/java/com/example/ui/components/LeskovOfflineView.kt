@@ -37,6 +37,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Lock
+import com.example.viewmodel.PageFailure
 import com.example.model.AppLanguage
 import com.example.model.LeskovStrings
 import com.example.ui.theme.LeskovAccentGlow
@@ -50,7 +55,8 @@ import com.example.ui.theme.LeskovTextMuted
 fun LeskovOfflineView(
     language: AppLanguage,
     onRetry: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    failure: PageFailure? = null
 ) {
     val transition = rememberInfiniteTransition(label = "offlineBreathe")
     val iconScale by transition.animateFloat(
@@ -73,6 +79,7 @@ fun LeskovOfflineView(
                 .clip(RoundedCornerShape(24.dp))
                 .background(LeskovSurfaceVariant.copy(alpha = 0.6f))
                 .border(1.dp, LeskovPrimary.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 36.dp)
         ) {
             Box(
@@ -85,7 +92,11 @@ fun LeskovOfflineView(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.WifiOff,
+                    imageVector = when (failure) {
+                        PageFailure.SERVER -> Icons.Default.CloudOff
+                        PageFailure.SECURITY -> Icons.Default.Lock
+                        else -> Icons.Default.WifiOff
+                    },
                     contentDescription = null,
                     tint = LeskovAccentGlow,
                     modifier = Modifier.size(40.dp)
@@ -95,7 +106,7 @@ fun LeskovOfflineView(
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = LeskovStrings.offlineTitle(language),
+                text = LeskovStrings.pageErrorTitle(language, failure),
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 22.sp,
@@ -107,7 +118,7 @@ fun LeskovOfflineView(
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = LeskovStrings.offlineDesc(language),
+                text = LeskovStrings.pageErrorDescription(language, failure),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = LeskovTextMuted,
                     lineHeight = 20.sp

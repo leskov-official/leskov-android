@@ -6,6 +6,10 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -70,22 +74,25 @@ fun LeskovBottomBar(
     ) {
         Column {
             HorizontalDivider(color = Color.White.copy(alpha = 0.075f), thickness = 1.dp)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(start = 5.dp, end = 5.dp, top = 7.dp, bottom = 5.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                LESKOV_NAV_TABS.forEachIndexed { index, tab ->
-                    LeskovNavItem(
-                        tab = tab,
-                        label = LeskovStrings.navLabel(tab.route, language),
-                        isSelected = selectedIndex == index,
-                        onClick = { onTabSelected(index) },
-                        modifier = Modifier.weight(1f).testTag("nav_tab_${tab.route}")
-                    )
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val itemWidth = maxOf(maxWidth / LESKOV_NAV_TABS.size, 64.dp)
+                Row(
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .navigationBarsPadding()
+                        .padding(top = 7.dp, bottom = 5.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    LESKOV_NAV_TABS.forEachIndexed { index, tab ->
+                        LeskovNavItem(
+                            tab = tab,
+                            label = LeskovStrings.navLabel(tab.route, language),
+                            isSelected = selectedIndex == index,
+                            onClick = { onTabSelected(index) },
+                            modifier = Modifier.width(itemWidth).testTag("nav_tab_${tab.route}")
+                        )
+                    }
                 }
             }
         }
@@ -125,7 +132,7 @@ private fun LeskovNavItem(
     )
     Box(
         modifier = modifier
-            .height(60.dp)
+            .heightIn(min = 64.dp)
             .clip(RoundedCornerShape(15.dp))
             .background(background)
             .semantics { selected = isSelected }
@@ -155,13 +162,15 @@ private fun LeskovNavItem(
                 Text(
                     text = currentLabel,
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 8.8.sp,
+                        fontSize = 11.sp,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                        letterSpacing = (-0.45).sp,
+                        letterSpacing = 0.sp,
                         color = content
                     ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Clip
+                    maxLines = 2,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 3.dp),
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             Spacer(Modifier.height(3.dp))

@@ -26,7 +26,7 @@ data class NavigationTab(
 object LeskovConstants {
     const val BASE_URL = "https://lesv.online/"
     const val HOST = "lesv.online"
-    const val USER_AGENT_SUFFIX = " LESKOV-Android/3.0"
+    val USER_AGENT_SUFFIX = " LESKOV-Android/${com.example.BuildConfig.VERSION_NAME}"
 
     // Real routes from the PHP backend
     const val HOME_PATH = "index.php"

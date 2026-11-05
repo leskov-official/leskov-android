@@ -17,6 +17,34 @@ enum class AppLanguage(val code: String) {
 }
 
 object LeskovStrings {
+    fun pageErrorTitle(lang: AppLanguage, failure: com.example.viewmodel.PageFailure?): String = when (failure) {
+        com.example.viewmodel.PageFailure.SERVER -> when (lang) {
+            AppLanguage.RU -> "Страница временно недоступна"
+            AppLanguage.ET -> "Leht pole ajutiselt saadaval"
+            AppLanguage.EN -> "Page temporarily unavailable"
+        }
+        com.example.viewmodel.PageFailure.SECURITY -> when (lang) {
+            AppLanguage.RU -> "Соединение не защищено"
+            AppLanguage.ET -> "Ühendus pole turvaline"
+            AppLanguage.EN -> "Connection is not secure"
+        }
+        else -> offlineTitle(lang)
+    }
+
+    fun pageErrorDescription(lang: AppLanguage, failure: com.example.viewmodel.PageFailure?): String = when (failure) {
+        com.example.viewmodel.PageFailure.SERVER -> when (lang) {
+            AppLanguage.RU -> "Сервис не смог открыть эту страницу. Попробуйте ещё раз немного позже."
+            AppLanguage.ET -> "Teenusel ei õnnestunud lehte avada. Proovige veidi hiljem uuesti."
+            AppLanguage.EN -> "The service could not open this page. Please try again shortly."
+        }
+        com.example.viewmodel.PageFailure.SECURITY -> when (lang) {
+            AppLanguage.RU -> "Не удалось проверить безопасность сайта. Попробуйте позже или используйте другую сеть."
+            AppLanguage.ET -> "Saidi turvalisust ei saanud kontrollida. Proovige hiljem või teises võrgus."
+            AppLanguage.EN -> "The site's security could not be verified. Try later or use another network."
+        }
+        else -> offlineDesc(lang)
+    }
+
     fun playbackError(lang: AppLanguage): String = when (lang) {
         AppLanguage.RU -> "Не удалось продолжить трек. Проверьте доступ и интернет."
         AppLanguage.ET -> "Loo jätkamine ebaõnnestus. Kontrollige võrku ja juurdepääsu."
