@@ -266,7 +266,7 @@ private fun MoreSheetItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 60.dp)
+            .height(72.dp)
             .scale(scale)
             .clip(RoundedCornerShape(12.dp))
             .clickable(interactionSource = interaction,
@@ -274,7 +274,7 @@ private fun MoreSheetItem(
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onClick()
                 })
-            .padding(vertical = 10.dp, horizontal = 8.dp)
+            .padding(vertical = 8.dp, horizontal = 8.dp)
             .testTag(tag),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -306,7 +306,7 @@ private fun MoreSheetItem(
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = LeskovTextMuted,
                     fontSize = 12.sp,
-                    lineHeight = 16.sp
+                    lineHeight = 15.sp
                 )
             )
         }
