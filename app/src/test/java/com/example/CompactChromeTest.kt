@@ -6,7 +6,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.test.assertHeightIsAtMost
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import org.junit.Assert.assertTrue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -37,8 +38,8 @@ class CompactChromeTest {
                 }
             }
         }
-        compose.onNodeWithTag("auth_gate_login_button").assertIsDisplayed().assertHeightIsAtMost(56.dp)
-        compose.onNodeWithTag("auth_gate_register_button").assertIsDisplayed().assertHeightIsAtMost(56.dp)
+        assertTrue(compose.onNodeWithTag("auth_gate_login_button").assertIsDisplayed().getUnclippedBoundsInRoot().height <= 56.dp)
+        assertTrue(compose.onNodeWithTag("auth_gate_register_button").assertIsDisplayed().getUnclippedBoundsInRoot().height <= 56.dp)
     }
 
     @Test fun `more menu settings remain compact with large system font`() {
@@ -49,6 +50,6 @@ class CompactChromeTest {
                 }
             }
         }
-        compose.onNodeWithTag("sheet_settings_item").assertIsDisplayed().assertHeightIsAtMost(84.dp)
+        assertTrue(compose.onNodeWithTag("sheet_settings_item").assertIsDisplayed().getUnclippedBoundsInRoot().height <= 84.dp)
     }
 }

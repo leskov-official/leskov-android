@@ -160,17 +160,17 @@ html[data-leskov-app] #leskov-native-playback-badge { display: none !important; 
 
     /* One scroll owner per conversation; header and composer remain in view. */
     html[data-leskov-app] body.messages-page { height: 100dvh !important; overflow: hidden !important; }
-    html[data-leskov-app] .messages-page .messenger-layout { display: block !important; width: 100% !important; height: 100dvh !important; max-height: 100dvh !important; margin: 0 !important; padding: 8px !important; box-sizing: border-box !important; }
-    html[data-leskov-app] .messages-page.is-leskov-thread .messenger-sidebar { display: none !important; }
-    html[data-leskov-app] .messages-page.is-leskov-thread .messenger-main { display: flex !important; flex-direction: column !important; height: 100% !important; min-height: 0 !important; padding: 12px !important; overflow: hidden !important; box-sizing: border-box !important; gap: 8px !important; }
+    html[data-leskov-app]:root body.messages-page .messenger-layout { display: block !important; width: 100% !important; height: 100dvh !important; max-height: 100dvh !important; margin: 0 !important; padding: 8px !important; box-sizing: border-box !important; }
+    html[data-leskov-app]:root body.messages-page.is-leskov-thread .messenger-sidebar { display: none !important; }
+    html[data-leskov-app]:root body.messages-page.is-leskov-thread .messenger-main { display: flex !important; flex-direction: column !important; height: 100% !important; min-height: 0 !important; padding: 12px !important; overflow: hidden !important; box-sizing: border-box !important; gap: 8px !important; }
     html[data-leskov-app] #messageThread { flex: 1 1 0 !important; min-height: 0 !important; max-height: none !important; margin: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; overscroll-behavior: contain; overflow-anchor: auto; scroll-behavior: auto !important; }
-    html[data-leskov-app] .messages-page :is(.messenger-head,#messageComposer,#typingIndicator) { flex-shrink: 0 !important; }
-    html[data-leskov-app] .messages-page .messenger-head { flex-wrap: wrap; gap: 8px; }
+    html[data-leskov-app]:root body.messages-page :is(.messenger-head,#messageComposer,#typingIndicator) { flex-shrink: 0 !important; }
+    html[data-leskov-app]:root body.messages-page .messenger-head { flex-wrap: wrap; gap: 8px; }
     html[data-leskov-app] #messageComposer { position: relative !important; bottom: auto !important; margin: 0 !important; padding-top: 8px !important; }
     html[data-leskov-app] #leskov-dialogs-back { display: block; color: var(--accent,#2863f0); text-decoration: none; font-size: 13px; padding: 4px 0; }
-    html[data-leskov-app] .messages-page.is-leskov-dialogs .messenger-main { display: none !important; }
-    html[data-leskov-app] .messages-page.is-leskov-dialogs .messenger-sidebar { display: flex !important; flex-direction: column !important; height: 100% !important; min-height: 0 !important; position: static !important; padding: 12px !important; overflow: hidden !important; box-sizing: border-box !important; }
-    html[data-leskov-app] .messages-page [data-messenger-dialogs] { flex: 1 1 0 !important; min-height: 0 !important; max-height: none !important; overflow-y: auto !important; overscroll-behavior: contain; }
+    html[data-leskov-app]:root body.messages-page.is-leskov-dialogs .messenger-main { display: none !important; }
+    html[data-leskov-app]:root body.messages-page.is-leskov-dialogs .messenger-sidebar { display: flex !important; flex-direction: column !important; height: 100% !important; min-height: 0 !important; position: static !important; padding: 12px !important; overflow: hidden !important; box-sizing: border-box !important; }
+    html[data-leskov-app]:root body.messages-page [data-messenger-dialogs] { flex: 1 1 0 !important; min-height: 0 !important; max-height: none !important; overflow-y: auto !important; overscroll-behavior: contain; }
 }
 @media (max-width: 850px) {
     html[data-leskov-app] :is(.toast-host,.toast-notice,.header-notice-dropdown) { max-width: calc(100vw - 24px) !important; box-sizing: border-box !important; }
