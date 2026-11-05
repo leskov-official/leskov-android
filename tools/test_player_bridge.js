@@ -129,5 +129,11 @@ h.api.command('next');h.flush();check(h.messages.at(-1).title,'Header Two');
 check(JSON.parse(h.api.snapshot()).queueIndex,1);
 h.api.command('seek:5000');check(headerMedia.currentTime,5);
 
+// A real user press must release native audio focus before the site's click handler plays.
+const pointerButton = {disabled:false,getAttribute:()=>null,closest:()=>headerRoot};
+h.event('pointerdown',{closest:()=>pointerButton});check(h.messages.at(-1).type,'web_start');
+const beforeDisabled = h.messages.length; pointerButton.disabled=true;
+h.event('pointerdown',{closest:()=>pointerButton});check(h.messages.length,beforeDisabled);
+
 const foreign = fixture({origin:'https://evil.test'}); check(foreign.api,undefined);
 console.log(`PASS player bridge: ${assertions} assertions (Premium, detached media, pause/seek, queue, calls, origin)`);

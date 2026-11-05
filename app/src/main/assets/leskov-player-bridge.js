@@ -9,7 +9,7 @@
     var seen = new WeakSet();
     var timer = null;
     var previous = '';
-    var playerSelector = '.leskov-player, .premium-player, [data-premium-player], #premiumPlayerModal, [data-header-player], [data-promo-player]';
+    var playerSelector = '.leskov-player, .premium-player, [data-premium-player], #premiumPlayerModal, #headerPlayerPanel, [data-header-player], [data-promo-player]';
     function manager() { return window.__leskovPlayerManager; }
     function eligible(a) {
         if (!a || a.tagName !== 'AUDIO' || a.srcObject) return false;
@@ -122,6 +122,19 @@
         report();
         renderNative();
     }
+    // Release Media3 before a user-started website track requests Chromium audio focus.
+    // Waiting only for the later `play` event can cause a Play -> Pause focus race.
+    document.addEventListener('pointerdown',function(e) {
+        var button = e.target && e.target.closest && e.target.closest(
+            '.leskov-player__btn--play, .leskov-player__center-btn[data-action="play"], [data-playlist-index], [data-header-play], [data-header-player-track], [data-header-next], [data-header-prev]');
+        if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return;
+        var root = button.closest(playerSelector);
+        if (!root) return;
+        var media = root.querySelector('audio');
+        if (eligible(media) || candidates().some(function(item) { return item.player && item.player.element === root; })) {
+            post({type:'web_start'});
+        }
+    },true);
     // Capture catches media inserted and played before the next discovery, including autoplay.
     events.forEach(function(name) { document.addEventListener(name, onEvent, true); });
     ['play','pause','ended','statechange','trackchange','playlistchange'].forEach(function(name) {
