@@ -50,6 +50,9 @@ jobs:
           node tools/test_player_bridge.js
           node tools/test_app_shell.js
 
+      - name: Test protected mobile track API
+        run: python3 tools/test_mobile_backend.py
+
       - name: Configure Firebase project
         shell: bash
         env:

@@ -14,6 +14,6 @@
 
 Серверные файлы backend/mobile_tracks.php, mobile_push.php, includes/mobile_push.php и notification-target-url.patch применены на lesv.online. Ключ Firebase не менялся и в репозитории отсутствует. Резервные копии серверных файлов сохранены вне сайта.
 
-Проверки: tools/test_app_shell.js; tools/test_player_bridge.js; tools/validate_source.py; PHP lint; браузерные fixtures tools/check_3_4_2.cjs (320/360/412 px). Нативные проверки NotificationPresentationTest и CompactChromeTest выполняются в CI вместе со сборкой и Android lint.
+Проверки: tools/test_app_shell.js; tools/test_player_bridge.js; tools/validate_source.py; PHP lint; tools/test_mobile_backend.py (авторизация, CSRF, Premium, доступность трека, успешные операции); браузерные fixtures tools/check_3_4_2.cjs (320/360/412 px, включая диалоги и сохранение прокрутки). Нативные проверки NotificationPresentationTest и CompactChromeTest выполняются в CI вместе со сборкой и Android lint.
 
 Системный запрос разрешения Android и оформление системной панели контролирует ОС. Фирменное оформление применяется к сообщениям приложения и содержимому уведомлений. Проверка реального телефона после установки APK необходима; браузерные fixtures не заменяют её.
