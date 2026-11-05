@@ -38,8 +38,8 @@ class CompactChromeTest {
                 }
             }
         }
-        assertTrue(compose.onNodeWithTag("auth_gate_login_button").assertIsDisplayed().getUnclippedBoundsInRoot().height <= 56.dp)
-        assertTrue(compose.onNodeWithTag("auth_gate_register_button").assertIsDisplayed().getUnclippedBoundsInRoot().height <= 56.dp)
+        assertTrue(compose.onNodeWithTag("auth_gate_login_button").assertIsDisplayed().getUnclippedBoundsInRoot().let { it.bottom - it.top <= 56.dp })
+        assertTrue(compose.onNodeWithTag("auth_gate_register_button").assertIsDisplayed().getUnclippedBoundsInRoot().let { it.bottom - it.top <= 56.dp })
     }
 
     @Test fun `more menu settings remain compact with large system font`() {
@@ -50,6 +50,6 @@ class CompactChromeTest {
                 }
             }
         }
-        assertTrue(compose.onNodeWithTag("sheet_settings_item").assertIsDisplayed().getUnclippedBoundsInRoot().height <= 84.dp)
+        assertTrue(compose.onNodeWithTag("sheet_settings_item").assertIsDisplayed().getUnclippedBoundsInRoot().let { it.bottom - it.top <= 84.dp })
     }
 }
