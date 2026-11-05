@@ -347,7 +347,7 @@ fun LeskovWebView(
     // The website can listen for "leskov:native-playback" to keep its own controls
     // in sync without spawning a second player or adding a bottom mini-player.
     val nativeHandoff by LeskovNativeAudioService.state.collectAsStateWithLifecycle()
-    androidx.compose.runtime.LaunchedEffect(nativeHandoff.active, nativeHandoff.playing, nativeHandoff.title) {
+    androidx.compose.runtime.LaunchedEffect(nativeHandoff) {
         webView.post {
             val current = webView.url.orEmpty()
             if (isInternalUri(Uri.parse(current))) {
@@ -569,6 +569,7 @@ private fun publishNativeSessionToPage(webView: WebView) {
     val json = JSONObject()
         .put("active", native.active)
         .put("playing", native.playing)
+        .put("buffering", native.buffering)
         .put("title", native.title)
         .put("artist", native.artist)
         .toString()

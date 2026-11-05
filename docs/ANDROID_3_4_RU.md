@@ -27,6 +27,7 @@ Ringtone, notification sound, WebRTC srcObject, видео и чужие ист�
 
 - `python3 tools/validate_source.py`: 61 PASS.
 - `node tools/test_audio_snapshot.js`: правила передачи аудио.
+- `NativeAudioQueueTest`: 4 Robolectric-теста порядка очереди, метаданных, неподходящих источников, обложек и ограничений размера.
 - `node tools/test_player_bridge.js`: 53 проверки Premium, detached audio, метаданных, паузы, перемотки, очереди, ограничений источника и исключения звонков.
 - Chromium + Playwright: index.php, discover.php, auth.php, terms.php, privacy_policy.php, profile.php, feed.php, messages.php на ширинах 320, 360, 412, 768, 1024 CSS px. 40 вариантов без выявленного горизонтального переполнения проверенных контейнеров. Закрытые маршруты проверены в гостевом состоянии с серверными перенаправлениями.
 - Реальный публичный `scripts/player.min.js` сайта, загруженный 05.11.2026, проверен в Chromium с локально сгенерированными WAV: play, pause, resume, seek, next, очередь, detached media. Это проверка совместимости класса плеера, а не Premium-авторизации.

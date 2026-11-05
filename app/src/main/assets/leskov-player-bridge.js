@@ -157,9 +157,10 @@
             });
         }
         if (!player.contains(badge)) player.appendChild(badge);
-        var text = (state.playing ? '⏸ ' : '▶ ') + state.title + ' · ' + state.artist;
+        var text = (state.buffering ? '◌ ' : state.playing ? '⏸ ' : '▶ ') + state.title + ' · ' + state.artist;
         if (badge.textContent !== text) badge.textContent = text;
         badge.setAttribute('aria-pressed',String(state.playing));
+        badge.setAttribute('aria-busy',String(!!state.buffering));
     }
     window.__leskovAndroidAudio = {snapshot:snapshot, command:command, report:report, renderNative:renderNative};
     window.addEventListener('leskov:native-playback',renderNative);

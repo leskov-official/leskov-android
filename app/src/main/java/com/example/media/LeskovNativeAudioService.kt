@@ -142,7 +142,8 @@ class LeskovNativeAudioService : MediaSessionService() {
                     )
                     .build()
                 streamFailed = false
-                val queue = parseQueue(intent.getStringExtra(EXTRA_QUEUE))
+                val queue = parseQueue(intent.getStringExtra(EXTRA_QUEUE),
+                    Uri.parse("android.resource://$packageName/${R.drawable.leskov_logo}"))
                 val queueIndex = intent.getIntExtra(EXTRA_QUEUE_INDEX, 0)
                 val validQueue = queue.isNotEmpty() && queueIndex in queue.indices &&
                     queue[queueIndex].localConfiguration?.uri == uri
@@ -166,7 +167,7 @@ class LeskovNativeAudioService : MediaSessionService() {
                 return START_STICKY
             }
             ACTION_TOGGLE -> {
-                if (player.isPlaying) player.pause() else player.play()
+                if (player.playWhenReady) player.pause() else player.play()
                 return START_NOT_STICKY
             }
             ACTION_STOP -> {
@@ -181,24 +182,6 @@ class LeskovNativeAudioService : MediaSessionService() {
         }
         return super.onStartCommand(intent, flags, startId)
     }
-
-    private fun parseQueue(raw: String?): List<MediaItem> = try {
-        val json = JSONArray(raw ?: "[]")
-        if (json.length() !in 1..100 || (raw?.length ?: 0) > 600_000) emptyList()
-        else (0 until json.length()).map { index ->
-            val track = json.getJSONObject(index)
-            val uri = Uri.parse(track.getString("url"))
-            require(isAllowedAudioUri(uri))
-            val artwork = track.optString("artwork").takeIf { it.isNotBlank() }
-                ?.let { Uri.parse(it) }?.takeIf { isAllowedAudioUri(it) }
-            MediaItem.Builder().setUri(uri).setMediaMetadata(
-                MediaMetadata.Builder().setTitle(track.optString("title", "LESKOV").take(160))
-                    .setArtist(track.optString("artist", "Igor Leskov").take(160))
-                    .setArtworkUri(artwork ?: Uri.parse("android.resource://$packageName/${R.drawable.leskov_logo}"))
-                    .build()
-            ).build()
-        }
-    } catch (_: Exception) { emptyList() }
 
     override fun onDestroy() {
         active = false
@@ -230,6 +213,27 @@ class LeskovNativeAudioService : MediaSessionService() {
         fun isAllowedAudioUri(uri: Uri?): Boolean = uri != null &&
             uri.scheme.equals("https", true) && uri.host.equals(LeskovConstants.HOST, true) &&
             uri.userInfo == null && uri.port in listOf(-1, 443)
+
+        internal fun parseQueue(raw: String?, fallbackArtwork: Uri): List<MediaItem> {
+            if (raw == null || raw.length > 600_000) return emptyList()
+            return try {
+                val json = JSONArray(raw)
+                if (json.length() !in 1..100) emptyList()
+                else (0 until json.length()).map { index ->
+                    val track = json.getJSONObject(index)
+                    val uri = Uri.parse(track.getString("url"))
+                    require(isAllowedAudioUri(uri))
+                    val artwork = track.optString("artwork").takeIf { it.isNotBlank() }
+                        ?.let { Uri.parse(it) }?.takeIf { isAllowedAudioUri(it) }
+                    MediaItem.Builder().setUri(uri).setMediaMetadata(
+                        MediaMetadata.Builder().setTitle(track.optString("title", "LESKOV").take(160))
+                            .setArtist(track.optString("artist", "Igor Leskov").take(160))
+                            .setArtworkUri(artwork ?: fallbackArtwork)
+                            .build()
+                    ).build()
+                }
+            } catch (_: Exception) { emptyList() }
+        }
 
         /** Called only after an actual user-started audio element is playing. */
         fun handoff(context: Context, url: String, title: String, artist: String,
