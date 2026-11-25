@@ -78,6 +78,14 @@ for (const a of [audio(''),audio('https://evil.test/song.mp3'),audio('https://le
 const blob = fixture({dom:[audio('blob:https://lesv.online/123')]});
 check(blob.messages[0].playing,true);
 
+// Anonymous releases use a PHP route with distinct media and artwork query parameters.
+const anonymous = fixture({active:{
+    media:audio('https://lesv.online/media.php?track=42&asset=audio'),
+    title:'Anonymous release', cover:'media.php?track=42&asset=cover'
+}});
+check(anonymous.messages[0].playing,true);
+check(anonymous.messages[0].artwork,'https://lesv.online/media.php?track=42&asset=cover');
+
 // Discover a manager created after script installation and retain paused track details.
 const late = fixture(); check(late.messages.length,0);
 const lateMedia = audio();
