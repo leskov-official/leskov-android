@@ -99,17 +99,11 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
             else -> _uiState.value.selectedTabIndex
         }
 
-        // The real LESKOV PHP logout endpoint is auth.php?logout=1, not logout.php.
-        val isLogout = path.contains("logout.php") ||
-            (path == "auth.php" && uri?.getQueryParameter("logout") != null)
-
         _uiState.update { current ->
             current.copy(
                 currentUrl = url,
                 selectedTabIndex = if (isAuthScreen || isLegalScreen) current.selectedTabIndex else matchingIndex,
                 showAuthGate = if (isAuthScreen || isLegalScreen) false else current.showAuthGate,
-                isLoggedIn = if (isLogout) false else current.isLoggedIn,
-                currentUserId = if (isLogout) 0 else current.currentUserId,
                 isOffline = current.pageFailure != null
             )
         }

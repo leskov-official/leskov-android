@@ -193,6 +193,13 @@ fun LeskovWebView(
                     if (!isMainFrame || origin.scheme != "https" || origin.host != LeskovConstants.HOST) return@addWebMessageListener
                     runCatching {
                         val state = JSONObject(message.data.orEmpty())
+                        if (state.optString("type") == "signed_out") {
+                            clearHistory()
+                            LeskovMediaService.stop(context)
+                            viewModel.onUserSessionDetected(0)
+                            viewModel.showMessage(com.example.model.LeskovStrings.signedOutToast(viewModel.uiState.value.language))
+                            return@runCatching
+                        }
                         if (state.optString("type") == "notice") {
                             viewModel.showMessage(state.optString("message").take(500))
                             return@runCatching
@@ -218,8 +225,6 @@ fun LeskovWebView(
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                     super.onPageStarted(view, url, favicon)
                     url?.let { viewModel.onPageStarted(it) }
-                    // Catch the server logout even if it immediately redirects to auth.php.
-                    if (url?.contains("auth.php?logout=") == true) viewModel.onUrlChanged(url)
                 }
 
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -338,7 +343,7 @@ fun LeskovWebView(
                 override fun onPermissionRequest(request: PermissionRequest?) {
                     if (request == null) return
                     val origin = request.origin
-                    if (origin.scheme != "https" || origin.host != LeskovConstants.HOST) {
+                    if (!WebNavigation.isTrustedUri(origin)) {
                         request.deny()
                         return
                     }

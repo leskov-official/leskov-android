@@ -91,6 +91,7 @@ class MainActivity : ComponentActivity() {
 
     private var pendingFilePathCallback: ValueCallback<Array<Uri>>? = null
     private var pendingPermissionRequest: PermissionRequest? = null
+    private var mediaPermissionDialogOpen = false
 
     private fun navigatePreservingMusic(url: String) {
         val page = webViewRef ?: return
@@ -129,7 +130,10 @@ class MainActivity : ComponentActivity() {
                     },
                     getWebView = { webViewRef },
                     onOpenFileChooser = { callback, params ->
-                        pendingFilePathCallback?.onReceiveValue(null)
+                        if (pendingFilePathCallback != null) {
+                            callback.onReceiveValue(null)
+                            return@LeskovApp true
+                        }
                         pendingFilePathCallback = callback
                         try {
                             val intent = params.createIntent()
@@ -139,7 +143,7 @@ class MainActivity : ComponentActivity() {
                             pendingFilePathCallback?.onReceiveValue(null)
                             pendingFilePathCallback = null
                             viewModel.showMessage("Выбор файлов недоступен")
-                            false
+                            true
                         }
                     },
                     onNavigate = { url -> navigatePreservingMusic(url) },
@@ -148,7 +152,10 @@ class MainActivity : ComponentActivity() {
                     },
                     onRequestMediaPermission = { request ->
                         // Only one origin-owned WebRTC request may be active at a time.
-                        pendingPermissionRequest?.let { runCatching { it.deny() } }
+                        if (mediaPermissionDialogOpen) {
+                            request.deny()
+                            return@LeskovApp
+                        }
                         pendingPermissionRequest = request
                         val resources = request.resources
                         var needCamera = false
@@ -180,6 +187,7 @@ class MainActivity : ComponentActivity() {
                             if (isTrustedCurrentPage()) request.grant(resources) else request.deny()
                             pendingPermissionRequest = null
                         } else {
+                            mediaPermissionDialogOpen = true
                             mediaPermissionsLauncher.launch(permissionsToAsk.toTypedArray())
                         }
                     }
@@ -191,16 +199,23 @@ class MainActivity : ComponentActivity() {
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (pendingFilePathCallback != null) {
-            val uriResult = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
-            pendingFilePathCallback?.onReceiveValue(uriResult)
-            pendingFilePathCallback = null
+        val callback = pendingFilePathCallback
+        pendingFilePathCallback = null
+        if (callback != null) {
+            val clip = result.data?.clipData
+            val selected = when {
+                result.resultCode != RESULT_OK -> emptyList()
+                clip != null -> (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
+                else -> WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)?.toList().orEmpty()
+            }.filter { it.scheme == "content" }.distinct()
+            callback.onReceiveValue(selected.takeIf { it.isNotEmpty() }?.toTypedArray())
         }
     }
 
     private val mediaPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
+        mediaPermissionDialogOpen = false
         val request = pendingPermissionRequest
         pendingPermissionRequest = null
         if (request != null) {

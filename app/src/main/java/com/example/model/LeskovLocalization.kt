@@ -330,6 +330,12 @@ object LeskovStrings {
         AppLanguage.RU -> "Выйти"
     }
 
+    fun signOutFailed(lang: AppLanguage): String = when (lang) {
+        AppLanguage.ET -> "Väljalogimist ei saanud kinnitada. Kontrolli ühendust ja proovi uuesti."
+        AppLanguage.EN -> "Could not confirm sign-out. Check your connection and try again."
+        AppLanguage.RU -> "Не удалось подтвердить выход. Проверьте соединение и повторите попытку."
+    }
+
     fun signedOutToast(lang: AppLanguage): String = when (lang) {
         AppLanguage.ET -> "Olete kontost välja loginud"
         AppLanguage.EN -> "You have signed out"

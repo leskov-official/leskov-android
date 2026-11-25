@@ -5,9 +5,9 @@ const vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'../app/src/main/assets/leskov-app-shell.js'),'utf8');
 let checks=0;
 function check(actual,expected){assert.deepEqual(actual,expected);checks++;}
-function fixture(origin='https://lesv.online'){
+function fixture(origin='https://lesv.online', fetcher){
  const events={},states=[],push=[],viewport={content:''},button={disabled:true,setAttribute(){},classList:{toggle(){}}},status={textContent:'Web Push unsupported'};
- let active=false,accepted=true,calls=0;
+ let active=false,accepted=true,calls=0;const navigated=[];
  const document={documentElement:{lang:'ru',setAttribute(){}},head:{},body:{getAttribute:()=> '42',hasAttribute:()=>true,classList:{contains:()=>false}},
   querySelector(selector){if(selector==='meta[name="viewport"]')return viewport; if(active&&selector==='#callOverlay:not([hidden])')return {};return null;},
   querySelectorAll(selector){if(selector==='[data-notifications-push-enable]')return [button];if(selector==='[data-notifications-push-status]')return [status];return [];},
@@ -15,9 +15,9 @@ function fixture(origin='https://lesv.online'){
  const window={addEventListener(){},LeskovPageBridge:{postMessage:s=>states.push(JSON.parse(s))},
   LeskovNativePush:{postMessage:s=>push.push(s)},__leskovNavigateWithPlayer(){calls++;return accepted;}};
  window.top=window;
- vm.runInNewContext(source,{document,window,location:{origin,href:origin+'/index.php'},URL,JSON,Number,String,parseInt,
+ vm.runInNewContext(source,{document,window,location:{origin,href:origin+'/index.php',replace:url=>navigated.push(url)},fetch:fetcher,URL,URLSearchParams,JSON,Number,String,parseInt,
   MutationObserver:class{observe(){}},requestAnimationFrame(){},getComputedStyle:()=>({display:'flex'})});
- return {window,button,status,viewport,states,push,events,setActive:v=>active=v,setAccepted:v=>accepted=v,calls:()=>calls,api:window.__leskovAppShell};
+ return {window,button,status,viewport,states,push,events,navigated,setActive:v=>active=v,setAccepted:v=>accepted=v,calls:()=>calls,api:window.__leskovAppShell};
 }
 const f=fixture();
 check(f.button.disabled,false);
@@ -42,4 +42,24 @@ f.api.setPushStatus({enabled:false,status:'connecting',message:'Connecting'});ch
 f.api.setPushStatus({enabled:false,status:'permission_denied',message:'Disabled'});check(f.button.disabled,false);
 check(f.button.textContent,'Включить Push на этом устройстве');
 check(fixture('https://evil.test').api,undefined);
-console.log(`PASS app shell: ${checks} assertions (same-player navigation, call guard, FCM button, status, origin)`);
+async function testSignOut() {
+ for(const [initial,after,success] of [[200,401,true],[200,200,false],[401,401,true],[503,401,false]]){
+  const requests=[];
+  const test=fixture('https://lesv.online',async(url,options)=>{
+   requests.push([url,options]);
+   if(url==='/auth.php') return {ok:true};
+   const status=requests.length===1?initial:after;
+   return {status,ok:status===200,json:async()=>({ok:true,csrf:'fixture-csrf'})};
+  });
+  const task=test.api.signOut();check(task===test.api.signOut(),true);
+  check(await task,success);check(test.navigated,success?['/auth.php']:[]);
+  check(test.states.at(-1).type,success?'signed_out':'notice');
+  if(initial===200){
+   check(requests.map(item=>item[0]),['/mobile_push.php?action=csrf','/auth.php','/mobile_push.php?action=csrf']);
+   const options=requests[1][1];check(options.method,'POST');check(options.credentials,'same-origin');
+   check(options.body.get('csrf_token'),'fixture-csrf');check(options.body.get('action'),'logout');
+  }else check(requests.length,1);
+ }
+}
+testSignOut().then(()=>console.log(`PASS app shell: ${checks} assertions (navigation, calls, FCM, origin, POST/CSRF sign-out)`))
+ .catch(error=>{console.error(error);process.exitCode=1});

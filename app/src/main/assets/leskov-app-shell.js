@@ -79,7 +79,37 @@
     function schedule() {
         if (!scheduled) { scheduled=true; requestAnimationFrame(refresh); }
     }
+    var pendingSignOut = null;
+    function signOut() {
+        if (pendingSignOut) return pendingSignOut;
+        pendingSignOut = (async function() {
+            var options = {credentials:'same-origin', cache:'no-store'};
+            var sessionUrl = '/mobile_push.php?action=csrf';
+            var response = await fetch(sessionUrl, options);
+            if (response.status !== 401) {
+                if (!response.ok) throw Error('session');
+                var state = await response.json();
+                if (!state.ok || !state.csrf) throw Error('csrf');
+                var body = new URLSearchParams({action:'logout', csrf_token:state.csrf});
+                var logout = await fetch('/auth.php', Object.assign({}, options, {method:'POST', body:body}));
+                if (!logout.ok || (await fetch(sessionUrl, options)).status !== 401) throw Error('logout');
+            }
+            if (window.LeskovPageBridge) window.LeskovPageBridge.postMessage(JSON.stringify({type:'signed_out'}));
+            location.replace('/auth.php');
+            return true;
+        })().catch(function() {
+            var lang = (document.documentElement.lang || 'en').slice(0,2);
+            var message = {ru:'Не удалось подтвердить выход. Проверьте соединение и повторите попытку.',
+                et:'Väljalogimist ei saanud kinnitada. Kontrolli ühendust ja proovi uuesti.',
+                en:'Could not confirm sign-out. Check your connection and try again.'}[lang];
+            if (window.LeskovPageBridge) window.LeskovPageBridge.postMessage(JSON.stringify({type:'notice',message:message}));
+            else window.alert(message);
+            return false;
+        }).finally(function() { pendingSignOut = null; });
+        return pendingSignOut;
+    }
     window.__leskovAppShell = {
+        signOut:signOut,
         navigate:function(raw) {
             var url;
             try {url=new URL(raw,location.href);} catch (_) {return 'hard';}
