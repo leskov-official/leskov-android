@@ -71,6 +71,36 @@
             }
         }
     }
+    // The website's multi-photo input has no visible selection state in the supplied
+    // messenger markup. Keep the actual FileList intact; submit via its existing form.
+    function photoSelection() {
+        var input=document.getElementById('messageImagesInput');
+        var form=document.getElementById('messageComposer');
+        if (!input || !form || input.form!==form) return;
+        var status=document.getElementById('leskov-photo-selection');
+        var count=input.files ? input.files.length : 0;
+        if (!count) {if (status) status.remove();return;}
+        var lang=(document.documentElement.lang||'ru').slice(0,2);
+        var labels={ru:['Фото выбрано: ','Убрать фото'],et:['Valitud fotod: ','Eemalda fotod'],en:['Photos selected: ','Remove photos']}[lang] || ['Photos selected: ','Remove photos'];
+        if (!status) {
+            status=document.createElement('div');status.id='leskov-photo-selection';
+            var text=document.createElement('span');text.setAttribute('role','status');
+            var clear=document.createElement('button');clear.type='button';
+            clear.addEventListener('click',function(){
+                var current=document.getElementById('messageImagesInput');
+                if (!current || current.disabled) return;
+                current.value='';current.dispatchEvent(new Event('change',{bubbles:true}));
+            });
+            status.append(text,clear);
+            var tools=form.querySelector('.compose-tools');
+            if (tools) tools.before(status);else form.append(status);
+        }
+        var label=labels[0]+count;
+        if (status.firstElementChild.textContent!==label) status.firstElementChild.textContent=label;
+        var button=status.lastElementChild;
+        if (button.textContent!==labels[1]) button.textContent=labels[1];
+        if (button.disabled!==input.disabled) button.disabled=input.disabled;
+    }
     function refresh() {
         scheduled=false;
         if (!document.documentElement || !document.head) return;
@@ -82,7 +112,7 @@
         }
         var badge=document.getElementById('leskov-native-playback-badge');
         if (badge) badge.remove();
-        dialogs(); pushControls(); publish(); session();
+        dialogs(); photoSelection(); pushControls(); publish(); session();
     }
     function schedule() {
         if (!scheduled) { scheduled=true; requestAnimationFrame(refresh); }
@@ -134,6 +164,7 @@
             pushControls();
         }
     };
+    document.addEventListener('change',function(e) {if(e.target && e.target.id==='messageImagesInput') photoSelection();});
     document.addEventListener('leskov:soft-navigation',function() {refresh();});
     window.addEventListener('popstate',schedule);
     if (typeof window.matchMedia==='function') {var mq=window.matchMedia('(prefers-color-scheme: light)'); if(mq.addEventListener) mq.addEventListener('change',schedule);}

@@ -65,7 +65,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: LESKOV-3.4.5-dependency-audit
+          name: LESKOV-3.4.6-dependency-audit
           path: app/build/reports/security/
           if-no-files-found: warn
           retention-days: 14
@@ -103,14 +103,14 @@ jobs:
           LC_ALL=C keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab > release-output/aab-certificate.txt
           python3 tools/verify_aab_certificate.py release-output/aab-certificate.txt
           cp app/build/reports/security/release-dependencies.tsv app/build/reports/security/osv-report.json release-output/
-          cp "$APK" release-output/LESKOV-3.4.5.apk
-          cp app/build/outputs/bundle/release/app-release.aab release-output/LESKOV-3.4.5.aab
-          (cd release-output && sha256sum LESKOV-3.4.5.apk LESKOV-3.4.5.aab > SHA256SUMS.txt)
+          cp "$APK" release-output/LESKOV-3.4.6.apk
+          cp app/build/outputs/bundle/release/app-release.aab release-output/LESKOV-3.4.6.aab
+          (cd release-output && sha256sum LESKOV-3.4.6.apk LESKOV-3.4.6.aab > SHA256SUMS.txt)
           printf '%s\n' "$GITHUB_SHA" > release-output/source-commit.txt
       - name: Upload candidate (not a public release)
         uses: actions/upload-artifact@v6
         with:
-          name: LESKOV-3.4.5-signed-candidate
+          name: LESKOV-3.4.6-signed-candidate
           path: release-output/
           if-no-files-found: error
           retention-days: 14

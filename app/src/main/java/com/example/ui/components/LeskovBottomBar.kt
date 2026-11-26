@@ -45,7 +45,8 @@ import com.example.model.LeskovStrings
 /** Six equal tabs fit the screen; selected tabs never move out of view. */
 @Composable
 fun LeskovBottomBar(selectedIndex: Int, language: AppLanguage,
-                    onTabSelected: (Int) -> Unit, modifier: Modifier = Modifier) {
+                    onTabSelected: (Int) -> Unit, modifier: Modifier = Modifier,
+                    isLoggedIn: Boolean = true) {
     val density = LocalDensity.current
     // Keep this small navigation strip stable at large system fonts. Full labels remain
     // available to TalkBack; page content can still be magnified with WebView pinch zoom.
@@ -57,6 +58,7 @@ fun LeskovBottomBar(selectedIndex: Int, language: AppLanguage,
                     .selectableGroup().padding(horizontal = 4.dp, vertical = 3.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly) {
                     LESKOV_NAV_TABS.forEachIndexed { index, tab ->
+                        if (!isLoggedIn && tab.requiresAuth) return@forEachIndexed
                         val selected = index == selectedIndex
                         val label = LeskovStrings.navLabel(tab.route, language)
                         val tint by animateColorAsState(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,

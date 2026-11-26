@@ -143,6 +143,7 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
                 isLoggedIn = loggedIn,
                 currentUserId = userId,
                 authChecked = true,
+                selectedTabIndex = if (!loggedIn && LESKOV_NAV_TABS.getOrNull(current.selectedTabIndex)?.requiresAuth == true) 0 else current.selectedTabIndex,
                 showAuthGate = if (loggedIn) false else current.showAuthGate
             )
         }

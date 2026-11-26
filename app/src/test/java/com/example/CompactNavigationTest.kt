@@ -26,20 +26,24 @@ import org.robolectric.annotation.Config
 class CompactNavigationTest {
     @get:Rule val compose = createComposeRule()
 
-    private fun verify(language: AppLanguage) {
+    private fun verify(language: AppLanguage, loggedIn: Boolean = true) {
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
                 MyApplicationTheme {
                     Box(Modifier.width(320.dp)) {
-                        LeskovBottomBar(selectedIndex = 5, language = language, onTabSelected = {})
+                        LeskovBottomBar(selectedIndex = 5, language = language, onTabSelected = {}, isLoggedIn = loggedIn)
                     }
                 }
             }
         }
         LESKOV_NAV_TABS.forEach { tab ->
-            compose.onNodeWithTag("nav_tab_${tab.route}").assertIsDisplayed().assertHeightIsEqualTo(50.dp)
+            val node = compose.onNodeWithTag("nav_tab_${tab.route}")
+            if (loggedIn || !tab.requiresAuth) node.assertIsDisplayed().assertHeightIsEqualTo(50.dp)
+            else node.assertDoesNotExist()
         }
     }
+
+    @Test fun `guest sees only three tabs`() = verify(AppLanguage.RU, false)
 
     @Test fun `all Russian tabs visible on narrow screen with large system font`() = verify(AppLanguage.RU)
     @Test fun `all Estonian tabs visible on narrow screen with large system font`() = verify(AppLanguage.ET)

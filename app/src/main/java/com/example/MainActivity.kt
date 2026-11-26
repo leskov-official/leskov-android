@@ -148,10 +148,8 @@ class MainActivity : ComponentActivity() {
                         } else {
                             pendingFilePathCallback = callback
                             try {
-                                val intent = params.createIntent().apply {
-                                    addCategory(Intent.CATEGORY_OPENABLE)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
+                                val intent = UploadUriPolicy.documentIntent(params.acceptTypes,
+                                    params.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE)
                                 fileChooserLauncher.launch(intent)
                             } catch (_: Exception) {
                                 pendingFilePathCallback = null
@@ -214,10 +212,10 @@ class MainActivity : ComponentActivity() {
         pendingFilePathCallback = null
         if (callback != null) {
             val selected = runCatching {
-                WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+                UploadUriPolicy.pickerSelection(result.resultCode, result.data)
             }.getOrNull()
             val safe = if (isTrustedCurrentPage()) UploadUriPolicy.validate(this, selected) else null
-            if (selected != null && safe == null) {
+            if (result.resultCode == android.app.Activity.RESULT_OK && safe == null) {
                 viewModel.showMessage(LeskovStrings.unsafeAttachment(viewModel.uiState.value.language))
             }
             callback.onReceiveValue(safe)
@@ -414,6 +412,7 @@ fun LeskovApp(
             LeskovBottomBar(
                     selectedIndex = if (uiState.showMoreSheet) 5 else uiState.selectedTabIndex,
                     language = uiState.language,
+                    isLoggedIn = uiState.isLoggedIn,
                     onTabSelected = { index ->
                         val urlToLoad = viewModel.onTabSelected(index)
                         if (urlToLoad != null) {
