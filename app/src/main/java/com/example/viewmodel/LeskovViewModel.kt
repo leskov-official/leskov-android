@@ -33,7 +33,9 @@ data class LeskovUiState(
     val canGoBack: Boolean = false,
     val showMoreSheet: Boolean = false,
     val isCallActive: Boolean = false,
-    val statusMessage: String? = null
+    val statusMessage: String? = null,
+    val lightWebsiteTheme: Boolean = false,
+    val logoutRequestId: String? = null
 )
 
 class LeskovViewModel(application: Application) : AndroidViewModel(application) {
@@ -57,6 +59,30 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
                 }
             }
         }
+    }
+
+    fun onWebsiteThemeChanged(light: Boolean) {
+        _uiState.update { it.copy(lightWebsiteTheme = light) }
+    }
+
+    fun beginLogout(): String? {
+        if (_uiState.value.logoutRequestId != null || _uiState.value.isCallActive) return null
+        val id = java.util.UUID.randomUUID().toString()
+        _uiState.update { it.copy(logoutRequestId = id) }
+        return id
+    }
+
+    fun finishLogout(id: String, confirmed: Boolean): Boolean {
+        if (_uiState.value.logoutRequestId != id) return false
+        _uiState.update { current ->
+            if (confirmed) current.copy(logoutRequestId = null, isLoggedIn = false,
+                currentUserId = 0, authChecked = true, showAuthGate = false,
+                showMoreSheet = false, selectedTabIndex = 0,
+                statusMessage = com.example.model.LeskovStrings.signedOutToast(current.language))
+            else current.copy(logoutRequestId = null,
+                statusMessage = com.example.model.LeskovStrings.logoutUnconfirmed(current.language))
+        }
+        return true
     }
 
     fun onCallVisibilityChanged(active: Boolean) {
@@ -99,17 +125,11 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
             else -> _uiState.value.selectedTabIndex
         }
 
-        // The real LESKOV PHP logout endpoint is auth.php?logout=1, not logout.php.
-        val isLogout = path.contains("logout.php") ||
-            (path == "auth.php" && uri?.getQueryParameter("logout") != null)
-
         _uiState.update { current ->
             current.copy(
                 currentUrl = url,
-                selectedTabIndex = if (isAuthScreen || isLegalScreen) current.selectedTabIndex else matchingIndex,
+                selectedTabIndex = if (isAuthScreen || isLegalScreen || current.showAuthGate) current.selectedTabIndex else matchingIndex,
                 showAuthGate = if (isAuthScreen || isLegalScreen) false else current.showAuthGate,
-                isLoggedIn = if (isLogout) false else current.isLoggedIn,
-                currentUserId = if (isLogout) 0 else current.currentUserId,
                 isOffline = current.pageFailure != null
             )
         }
@@ -118,6 +138,7 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
     fun onUserSessionDetected(userId: Int) {
         val loggedIn = userId > 0
         _uiState.update { current ->
+            if (current.logoutRequestId != null) return@update current
             current.copy(
                 isLoggedIn = loggedIn,
                 currentUserId = userId,

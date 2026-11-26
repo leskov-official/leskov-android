@@ -12,7 +12,7 @@ def verify(signature, badging, expected):
         raise ValueError('APK signing certificate does not match expected release certificate')
     if re.search(r'CN\s*=\s*Android Debug', signature, re.I):
         raise ValueError('Debug signing certificate is not a release certificate')
-    if not re.search(r"^package: name='com\.aistudio\.leskov\.musix' versionCode='12' versionName='3\.4\.4'", badging, re.M):
+    if not re.search(r"^package: name='com\.aistudio\.leskov\.musix' versionCode='13' versionName='3\.4\.5'", badging, re.M):
         raise ValueError('Unexpected package or version')
     if re.search(r'^application-debuggable\b', badging, re.M):
         raise ValueError('Debuggable APK is not a release candidate')

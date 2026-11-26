@@ -15,11 +15,11 @@ html.lsv-winter-ice body.messages-page .messenger-layout > .messenger-sidebar{he
 .message-bubble{padding:12px}.compose-box textarea{width:100%}.sidebar-headline{display:flex;justify-content:space-between}'''
 
 def markup(selected, winter, friends=False):
-    rows = ''.join('<a class="user-list-item" href="?user=42"><span class="messenger-user-copy">Диалог %s</span></a>' % i for i in range(60))
+    rows = ''.join('<a class="user-list-item" href="?user=42"><span class="messenger-user-copy"><strong class="inline-badged-name"><span class="user-list-name">Диалог %s</span></strong><p class="messenger-peer-bio">Последнее сообщение с длинным текстом</p></span></a>' % i for i in range(60))
     thread = ('<div class="messenger-head"><div class="user-list-item is-active"><span class="avatar-stack"></span><span class="messenger-user-copy">Собеседник</span><div class="messenger-head-actions"><button>Секретный чат</button><button>Видеозвонок</button></div></div></div>'
               '<div id="messageThread" class="message-thread">'+ '<p class="message-bubble">Сообщение</p>'*60 + '</div>'
               '<form id="messageComposer"><textarea id="messageInput"></textarea><button>Отправить</button></form>') if selected else '<p>Выберите диалог</p>'
-    return f'''<!doctype html><html lang="ru" class="{'lsv-winter-ice' if winter else ''}"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body class="app-shell messages-page" data-current-user-id="7" data-active-user="{42 if selected else 0}"><div class="messenger-layout"><aside class="messenger-sidebar surface-card"><a>Профиль</a><a>Секретные переписки</a><input id="messengerSearch"><div class="sidebar-headline"><h1>Диалоги</h1></div><div data-messenger-dialogs style="{'display:none' if friends else ''}">{rows}</div><div data-messenger-friends style="{'display:block' if friends else 'display:none'}">{rows}</div></aside><main class="messenger-main surface-card">{thread}</main></div></body></html>'''
+    return f'''<!doctype html><html lang="ru" class="{'lsv-winter-ice lsv-season-on' if winter else ''}"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body class="app-shell messages-page" data-current-user-id="7" data-active-user="{42 if selected else 0}">{'<div class="lsv-season-garland"></div>' if winter else ''}<div class="messenger-layout"><aside class="messenger-sidebar surface-card"><a>Профиль</a><a>Секретные переписки</a><input id="messengerSearch"><div class="sidebar-headline"><h1>Диалоги</h1></div><div data-messenger-dialogs style="{'display:none' if friends else ''}">{rows}</div><div data-messenger-friends style="{'display:block' if friends else 'display:none'}">{rows}</div></aside><main class="messenger-main surface-card">{thread}</main></div></body></html>'''
 
 with sync_playwright() as pw:
     browser = pw.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH'), args=['--no-sandbox','--disable-dev-shm-usage'])
@@ -42,6 +42,8 @@ with sync_playwright() as pw:
             for friends in (False,True):
                 setup(False,winter,friends)
                 assert page.locator('.messenger-main').is_hidden()
+                if winter:
+                    assert page.locator('.messenger-layout').evaluate('(e)=>e.getBoundingClientRect().top>=38')
                 assert page.locator('.messenger-sidebar').evaluate('(e)=>{e.scrollTop=e.scrollHeight;return e.scrollTop>0 && e.scrollHeight>e.clientHeight}')
                 target='[data-messenger-friends]' if friends else '[data-messenger-dialogs]'
                 assert page.locator(target+' a').last.evaluate('(e)=>e.getBoundingClientRect().bottom<=innerHeight+1')

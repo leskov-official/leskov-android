@@ -51,6 +51,7 @@ jobs:
         run: |
           node tools/test_player_bridge.js
           node tools/test_app_shell.js
+          node tools/test_logout.js
 
       - name: Test release identity guard
         run: |

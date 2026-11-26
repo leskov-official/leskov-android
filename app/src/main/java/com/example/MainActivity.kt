@@ -119,7 +119,14 @@ class MainActivity : ComponentActivity() {
         val initialUrl = incomingUrl ?: LeskovConstants.buildUrl(LeskovConstants.HOME_PATH, AppLanguage.RU)
 
         setContent {
-            MyApplicationTheme {
+            val chromeState by viewModel.uiState.collectAsStateWithLifecycle()
+            LaunchedEffect(chromeState.lightWebsiteTheme) {
+                val style = if (chromeState.lightWebsiteTheme)
+                    SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+                else SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            }
+            MyApplicationTheme(light = chromeState.lightWebsiteTheme) {
                 LeskovApp(
                     fullscreenVideoHost = fullscreenVideoHost,
                     viewModel = viewModel,
@@ -349,14 +356,15 @@ fun LeskovApp(
     }
 
     // Refresh the page's Push status after full and persistent navigation.
-    LaunchedEffect(uiState.currentUserId, uiState.language, uiState.currentUrl) {
-        if (uiState.currentUserId > 0) {
+    LaunchedEffect(uiState.currentUserId, uiState.language, uiState.currentUrl, uiState.logoutRequestId) {
+        if (uiState.currentUserId > 0 && uiState.logoutRequestId == null) {
             com.example.push.FcmTokenManager.syncTokenWithServer(context, getWebView(), uiState.currentUserId, uiState.language)
         }
     }
 
     // Smart Back Handler
     BackHandler(enabled = true) {
+        if (uiState.logoutRequestId != null) return@BackHandler
         if (fullscreenVideoHost?.isActive == true) {
             fullscreenVideoHost.hide()
         } else if (uiState.isCallActive) {
@@ -392,7 +400,7 @@ fun LeskovApp(
         modifier = Modifier
             .fillMaxSize()
             .imePadding()
-            .background(LeskovBackground),
+            .background(androidx.compose.material3.MaterialTheme.colorScheme.background),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) { data -> LeskovSnackbar(data) } },
         topBar = { /* Clean layout - no heavy header bar */ },
@@ -424,7 +432,7 @@ fun LeskovApp(
                 .consumeWindowInsets(innerPadding)
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .then(if (uiState.isCallActive) Modifier.navigationBarsPadding() else Modifier)
-                .background(LeskovBackground)
+                .background(androidx.compose.material3.MaterialTheme.colorScheme.background)
         ) {
             // Main WebView remains persistent in the hierarchy to retain state, cookies & playback
             LeskovWebView(

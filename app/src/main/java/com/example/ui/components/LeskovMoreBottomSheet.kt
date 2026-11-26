@@ -35,14 +35,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.CleaningServices
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Gavel
-import androidx.compose.material.icons.filled.Policy
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.outlined.Login
+import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.CleaningServices
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Gavel
+import androidx.compose.material.icons.outlined.Policy
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -72,12 +72,6 @@ import androidx.compose.ui.unit.sp
 import com.example.model.AppLanguage
 import com.example.model.LeskovConstants
 import com.example.model.LeskovStrings
-import com.example.ui.theme.LeskovAccentGlow
-import com.example.ui.theme.LeskovBackground
-import com.example.ui.theme.LeskovError
-import com.example.ui.theme.LeskovOnBackground
-import com.example.ui.theme.LeskovSurfaceVariant
-import com.example.ui.theme.LeskovTextMuted
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,7 +93,7 @@ fun LeskovMoreBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = LeskovBackground,
+        containerColor = MaterialTheme.colorScheme.background,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         // A modal has its own Android window and density provider.
@@ -113,29 +107,29 @@ fun LeskovMoreBottomSheet(
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Brush.linearGradient(listOf(Color(0xFF30284F), Color(0xFF161D32))))
+                    .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.surfaceVariant)))
                     .padding(20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
                     Text("LESKOV", style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 24.sp),
-                        color = LeskovOnBackground)
+                        color = MaterialTheme.colorScheme.onBackground)
                     Text(LeskovStrings.sheetTitle(language),
-                        style = MaterialTheme.typography.bodyMedium, color = LeskovTextMuted)
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.labelMedium,
-                    color = LeskovAccentGlow,
-                    modifier = Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.06f))
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
                         .padding(horizontal = 12.dp, vertical = 8.dp))
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = LeskovSurfaceVariant)
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
             Spacer(modifier = Modifier.height(8.dp))
 
             // 1. Account Settings (Friendly subtitle, no raw technical URL)
             MoreSheetItem(
-                icon = Icons.Default.Settings,
+                icon = Icons.Outlined.Settings,
                 title = LeskovStrings.sheetSettings(language),
                 subtitle = LeskovStrings.sheetSettingsSubtitle(language),
                 tag = "sheet_settings_item",
@@ -151,7 +145,7 @@ fun LeskovMoreBottomSheet(
 
             // 2. Terms of Service
             MoreSheetItem(
-                icon = Icons.Default.Gavel,
+                icon = Icons.Outlined.Gavel,
                 title = LeskovStrings.sheetTerms(language),
                 subtitle = LeskovStrings.sheetTermsSubtitle(language),
                 tag = "sheet_terms_item",
@@ -163,7 +157,7 @@ fun LeskovMoreBottomSheet(
 
             // 3. Privacy Policy
             MoreSheetItem(
-                icon = Icons.Default.Policy,
+                icon = Icons.Outlined.Policy,
                 title = LeskovStrings.sheetPrivacy(language),
                 subtitle = LeskovStrings.sheetPrivacySubtitle(language),
                 tag = "sheet_privacy_item",
@@ -175,7 +169,7 @@ fun LeskovMoreBottomSheet(
 
             // 4. Support Email info@lesv.info
             MoreSheetItem(
-                icon = Icons.Default.Email,
+                icon = Icons.Outlined.Email,
                 title = LeskovStrings.sheetSupport(language),
                 subtitle = LeskovStrings.sheetSupportSubtitle(language),
                 tag = "sheet_support_item",
@@ -187,7 +181,7 @@ fun LeskovMoreBottomSheet(
 
             // 5. Device notification permission and configuration feedback.
             MoreSheetItem(
-                icon = Icons.Default.NotificationsActive,
+                icon = Icons.Outlined.NotificationsActive,
                 title = LeskovStrings.sheetNotifications(language),
                 subtitle = LeskovStrings.sheetNotificationsSubtitle(language),
                 tag = "sheet_notifications_item",
@@ -196,7 +190,7 @@ fun LeskovMoreBottomSheet(
 
             // 6. Clear App Cache (Keeps Cookies and User Logged In)
             MoreSheetItem(
-                icon = Icons.Default.CleaningServices,
+                icon = Icons.Outlined.CleaningServices,
                 title = LeskovStrings.sheetClearCache(language),
                 subtitle = LeskovStrings.sheetClearCacheSubtitle(language),
                 tag = "sheet_clear_cache_item",
@@ -209,11 +203,11 @@ fun LeskovMoreBottomSheet(
             // 6. Sign Out (Logged-in) or Sign In (Guest)
             if (isLoggedIn) {
                 MoreSheetItem(
-                    icon = Icons.AutoMirrored.Filled.Logout,
+                    icon = Icons.AutoMirrored.Outlined.Logout,
                     title = LeskovStrings.sheetSignOut(language),
                     subtitle = LeskovStrings.sheetSignOutSubtitle(language),
                     tag = "sheet_delete_cookies_item",
-                    iconTint = LeskovError,
+                    iconTint = MaterialTheme.colorScheme.error,
                     onClick = {
                         onDismiss()
                         onOpenDeleteCookiesConfirm()
@@ -221,11 +215,11 @@ fun LeskovMoreBottomSheet(
                 )
             } else {
                 MoreSheetItem(
-                    icon = Icons.AutoMirrored.Filled.Login,
+                    icon = Icons.AutoMirrored.Outlined.Login,
                     title = LeskovStrings.sheetSignIn(language),
                     subtitle = LeskovStrings.sheetSignInSubtitle(language),
                     tag = "sheet_sign_in_item",
-                    iconTint = LeskovAccentGlow,
+                    iconTint = MaterialTheme.colorScheme.primary,
                     onClick = {
                         onDismiss()
                         onRequireLoginForSettings()
@@ -246,9 +240,10 @@ private fun MoreSheetItem(
     title: String,
     subtitle: String,
     tag: String,
-    iconTint: androidx.compose.ui.graphics.Color = LeskovAccentGlow,
+    iconTint: androidx.compose.ui.graphics.Color = Color.Unspecified,
     onClick: () -> Unit
 ) {
+    val resolvedTint = if (iconTint == Color.Unspecified) MaterialTheme.colorScheme.primary else iconTint
     val haptics = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
     val isPressed by interaction.collectIsPressedAsState()
@@ -266,7 +261,7 @@ private fun MoreSheetItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(72.dp)
+            .heightIn(min = 66.dp)
             .scale(scale)
             .clip(RoundedCornerShape(12.dp))
             .clickable(interactionSource = interaction,
@@ -274,16 +269,16 @@ private fun MoreSheetItem(
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onClick()
                 })
-            .padding(vertical = 8.dp, horizontal = 8.dp)
+            .padding(vertical = 5.dp, horizontal = 8.dp)
             .testTag(tag),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier.size(36.dp).clip(RoundedCornerShape(14.dp))
-                .background(iconTint.copy(alpha = 0.10f)),
+                .background(resolvedTint.copy(alpha = 0.10f)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(imageVector = icon, contentDescription = null, tint = iconTint,
+            Icon(imageVector = icon, contentDescription = null, tint = resolvedTint,
                 modifier = Modifier.size(22.dp))
         }
 
@@ -292,27 +287,27 @@ private fun MoreSheetItem(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    lineHeight = 19.sp,
-                    color = LeskovOnBackground
+                    fontSize = 13.sp,
+                    lineHeight = 16.sp,
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             )
             Text(
                 text = subtitle,
                 maxLines = 2, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = LeskovTextMuted,
-                    fontSize = 12.sp,
-                    lineHeight = 15.sp
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp
                 )
             )
         }
         Spacer(Modifier.width(8.dp))
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null,
-            tint = LeskovTextMuted, modifier = Modifier.size(20.dp))
+            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
     }
     }
 }

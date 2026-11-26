@@ -1,7 +1,7 @@
 (function () {
     'use strict';
     if (location.origin !== 'https://lesv.online' || window.top !== window || window.__leskovAppShell) return;
-    var scheduled = false, previous = '', pushText = '', pushState = {enabled:false,status:'unknown'}, sessionUserId=null, sessionRequested=false;
+    var logoutBusy = false, scheduled = false, previous = '', pushText = '', pushState = {enabled:false,status:'unknown'}, sessionUserId=null, sessionRequested=false;
     function callActive() {
         return ['[data-call-incoming]:not([hidden])','[data-call-active]:not([hidden])',
             '#incomingCallModal:not([hidden])','#callOverlay:not([hidden])'].some(function(selector) {
@@ -10,15 +10,20 @@
             });
     }
     function publish() {
-        if (!document.body) return;
+        if (!document.body || logoutBusy) return;
         var lang = document.documentElement.lang || 'ru';
         var uid = parseInt(document.body.getAttribute('data-current-user-id'),10);
         if (!Number.isFinite(uid) && sessionUserId!==null) uid=sessionUserId;
         var payload = JSON.stringify({url:location.href,language:lang,
-            userId:Number.isFinite(uid) ? uid : -1,callActive:callActive()});
+            userId:Number.isFinite(uid) ? uid : -1,callActive:callActive(),lightTheme:lightTheme()});
         if (payload !== previous && window.LeskovPageBridge) {
             previous=payload; window.LeskovPageBridge.postMessage(payload);
         }
+    }
+    function lightTheme() {
+        var root=document.documentElement;
+        var theme=root.getAttribute ? root.getAttribute('data-theme') : null;
+        return theme==='light' || (theme==='auto' && typeof window.matchMedia==='function' && window.matchMedia('(prefers-color-scheme: light)').matches);
     }
     function pushControls() {
         if (!window.LeskovNativePush) return;
@@ -42,7 +47,7 @@
         });
     }
     function session() {
-        if (sessionRequested || !document.body || document.body.hasAttribute('data-current-user-id') || typeof fetch!=='function') return;
+        if (logoutBusy || sessionRequested || !document.body || document.body.hasAttribute('data-current-user-id') || typeof fetch!=='function') return;
         sessionRequested=true;
         fetch('/mobile_push.php?action=csrf',{credentials:'same-origin',cache:'no-store'})
             .then(function(response){if(response.status===401)return {user_id:0};return response.json();})
@@ -82,12 +87,43 @@
     function schedule() {
         if (!scheduled) { scheduled=true; requestAnimationFrame(refresh); }
     }
+    async function performLogout(id) {
+        var confirmed=false, controller=new AbortController();
+        var timer=setTimeout(function(){controller.abort();},11000);
+        var opts={credentials:'same-origin',cache:'no-store',signal:controller.signal};
+        try {
+            var csrfReply=await fetch('/mobile_push.php?action=csrf',opts);
+            if (csrfReply.status===401) {
+                // No CSRF means no authenticated push session; do not claim a logout POST succeeded.
+                confirmed=false;
+            }
+            else if (csrfReply.ok) {
+                var csrf=await csrfReply.json();
+                if (!csrf.ok || typeof csrf.csrf!=='string' || !csrf.csrf) throw new Error('csrf');
+                var lang=(document.documentElement.lang||'ru').slice(0,2);
+                var body=new URLSearchParams({action:'logout',csrf_token:csrf.csrf});
+                var reply=await fetch('/auth.php?lang='+encodeURIComponent(lang),Object.assign({},opts,{method:'POST',body:body}));
+                if (!reply.ok) throw new Error('logout');
+                var probe=await fetch('/mobile_push.php?action=csrf',opts);
+                confirmed=probe.status===401 && (await probe.json()).error==='auth_required';
+            }
+        } catch (_) { /* no success is reported on network or server failure */ }
+        finally {
+            clearTimeout(timer);
+            if (!confirmed) {logoutBusy=false;sessionRequested=false;}
+            if (window.LeskovPageBridge) window.LeskovPageBridge.postMessage(JSON.stringify({type:'logoutResult',id:id,confirmed:confirmed}));
+        }
+    }
     window.__leskovAppShell = {
+        logout:function(id) {
+            if (logoutBusy || callActive() || !window.LeskovPageBridge) return false;
+            logoutBusy=true;performLogout(id);return true;
+        },
         navigate:function(raw) {
             var url;
             try {url=new URL(raw,location.href);} catch (_) {return 'hard';}
             if (url.origin!==location.origin || url.username || url.password) return 'hard';
-            if (callActive()) return 'call_active';
+            if (logoutBusy || callActive()) return 'call_active';
             if (typeof window.__leskovNavigateWithPlayer==='function' && window.__leskovNavigateWithPlayer(url.href)) return 'soft';
             return 'hard';
         },
@@ -100,6 +136,7 @@
     };
     document.addEventListener('leskov:soft-navigation',function() {refresh();});
     window.addEventListener('popstate',schedule);
+    if (typeof window.matchMedia==='function') {var mq=window.matchMedia('(prefers-color-scheme: light)'); if(mq.addEventListener) mq.addEventListener('change',schedule);}
     document.addEventListener('click',function(e) {
         var button=e.target && e.target.closest && e.target.closest('[data-notifications-push-enable]');
         if (button && window.LeskovNativePush) {
@@ -108,7 +145,7 @@
     },true);
     var observer=new MutationObserver(schedule);
     observer.observe(document,{subtree:true,childList:true,attributes:true,
-        attributeFilter:['hidden','class','disabled','lang','data-current-user-id','data-active-user']});
+        attributeFilter:['hidden','class','disabled','lang','data-current-user-id','data-active-user','data-theme']});
     document.addEventListener('DOMContentLoaded',refresh,{once:true});
     refresh();
 })();

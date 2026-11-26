@@ -43,7 +43,7 @@ check('No unverified HTTP client token uploads', 'httpClient.newCall(' not in pu
 call=(root/'app/src/main/java/com/example/push/LeskovFirebaseMessagingService.kt').read_text()
 check('Fake call answer button removed', 'addAction(' not in call)
 dialog=(root/'app/src/main/java/com/example/ui/components/LeskovClearCacheDialog.kt').read_text()
-check('Real site session logout route used', 'auth.php?logout=1' in dialog)
+check('Real site session logout route used', '__leskovAppShell.logout' in dialog and "action:'logout'" in (root/'app/src/main/assets/leskov-app-shell.js').read_text())
 manifest=(root/'app/src/main/AndroidManifest.xml').read_text()
 check('Default FCM icon configured', 'default_notification_icon' in manifest)
 for p in list((root/'app/src/main/res').rglob('*.xml')) + [root/'app/src/main/AndroidManifest.xml']:
