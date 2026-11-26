@@ -12,7 +12,6 @@
         android:name="android.permission.BLUETOOTH_CONNECT"
         tools:targetApi="31" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -36,6 +35,7 @@
         android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/Theme.MyApplication">
+        <meta-data android:name="android.webkit.WebView.EnableSafeBrowsing" android:value="true" />
         <!-- Used for FCM messages displayed by Google Play services while backgrounded. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"

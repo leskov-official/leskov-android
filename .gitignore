@@ -9,3 +9,12 @@ app/google-services.json
 *.jks
 .env
 .env.local
+
+# Never commit generated release output or local signing material
+release-output/
+*.p12
+*.pem
+*.key
+*.apk
+*.aab
+__pycache__/

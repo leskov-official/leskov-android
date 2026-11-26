@@ -31,7 +31,7 @@
                 {ru:'Включить Push на этом устройстве',et:'Luba tõuketeavitused selles seadmes',en:'Enable Push on this device'};
             var label=labels[lang] || labels.en;
             if (button.textContent!==label) button.textContent=label;
-            button.setAttribute('aria-pressed',String(!!pushState.enabled));
+            if (button.getAttribute('aria-pressed')!==String(!!pushState.enabled)) button.setAttribute('aria-pressed',String(!!pushState.enabled));
             button.classList.toggle('is-enabled',!!pushState.enabled);
         });
         var text=pushText || ({ru:'Нажмите кнопку, чтобы подключить уведомления приложения.',
@@ -52,12 +52,15 @@
     function dialogs() {
         if (!document.body || !document.body.classList.contains('messages-page')) return;
         var thread=document.getElementById('messageThread');
-        document.body.classList.toggle('is-leskov-thread',!!thread);
-        document.body.classList.toggle('is-leskov-dialogs',!thread);
-        if (thread && !document.getElementById('leskov-dialogs-back')) {
+        var composer=document.getElementById('messageComposer');
+        var active=document.body.getAttribute('data-active-user');
+        var selected=!!thread && !!composer && (active===null || Number(active)>0);
+        document.body.classList.toggle('is-leskov-thread',selected);
+        document.body.classList.toggle('is-leskov-dialogs',!selected);
+        if (selected && !document.getElementById('leskov-dialogs-back')) {
             var head=document.querySelector('.messenger-head');
             if (head) {
-                var link=document.createElement('a');link.id='leskov-dialogs-back';link.href='messages.php';
+                var link=document.createElement('a');link.id='leskov-dialogs-back';link.href='/messages.php?lang='+encodeURIComponent((document.documentElement.lang||'ru').slice(0,2));
                 link.textContent=({ru:'‹ Диалоги',et:'‹ Vestlused',en:'‹ Conversations'}[(document.documentElement.lang||'ru').slice(0,2)] || '‹ Conversations');
                 head.prepend(link);
             }
@@ -105,7 +108,7 @@
     },true);
     var observer=new MutationObserver(schedule);
     observer.observe(document,{subtree:true,childList:true,attributes:true,
-        attributeFilter:['hidden','class','disabled','lang','data-current-user-id']});
+        attributeFilter:['hidden','class','disabled','lang','data-current-user-id','data-active-user']});
     document.addEventListener('DOMContentLoaded',refresh,{once:true});
     refresh();
 })();

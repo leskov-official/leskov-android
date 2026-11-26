@@ -1,0 +1,99 @@
+name: LESKOV Android — signed release candidate
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: leskov-signed-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+      - name: Install Android SDK
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'platform-tools'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+          cache-read-only: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Source and browser regressions
+        run: |
+          python3 -m pip install PyYAML playwright
+          python3 -m playwright install --with-deps chromium
+          python3 tools/validate_source.py
+          python3 tools/test_mobile_backend.py
+          python3 tools/test_verify_release.py
+          python3 tools/test_dialog_layout.py
+          APP_CSS_FIRST=1 python3 tools/test_dialog_layout.py
+      - name: Load real Firebase configuration
+        env:
+          FIREBASE_ANDROID_CONFIG_BASE64: ${{ secrets.FIREBASE_ANDROID_CONFIG_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$FIREBASE_ANDROID_CONFIG_BASE64" || { echo 'Missing Firebase config'; exit 1; }
+          umask 077
+          printf '%s' "$FIREBASE_ANDROID_CONFIG_BASE64" | base64 --decode > app/google-services.json
+          python3 tools/validate_source.py
+      - name: Test and lint before signing
+        run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:lintRelease
+      - name: Build with existing release signing key
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for key in SIGNING_KEYSTORE_BASE64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            test -n "${!key}" || { echo "Missing $key"; exit 1; }
+          done
+          umask 077
+          export KEYSTORE_PATH="$RUNNER_TEMP/leskov-signing.jks"
+          trap 'rm -f "$KEYSTORE_PATH"' EXIT
+          printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          gradle --no-daemon --no-configuration-cache --stacktrace :app:assembleRelease :app:bundleRelease
+      - name: Verify APK signature, package, version and checksum
+        env:
+          EXPECTED_CERT_SHA256: ${{ vars.RELEASE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          SDK_BIN="$ANDROID_HOME/build-tools/36.0.0"
+          mkdir -p release-output
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          test -s app/build/outputs/bundle/release/app-release.aab
+          "$SDK_BIN/apksigner" verify --verbose --print-certs "$APK" > release-output/signature.txt
+          "$SDK_BIN/aapt" dump badging "$APK" > release-output/apk-info.txt
+          python3 tools/verify_release.py release-output/signature.txt release-output/apk-info.txt
+          cp "$APK" release-output/LESKOV-3.4.3.apk
+          cp app/build/outputs/bundle/release/app-release.aab release-output/LESKOV-3.4.3.aab
+          (cd release-output && sha256sum LESKOV-3.4.3.apk LESKOV-3.4.3.aab > SHA256SUMS.txt)
+          printf '%s\n' "$GITHUB_SHA" > release-output/source-commit.txt
+      - name: Upload candidate (not a public release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: LESKOV-3.4.3-signed-candidate
+          path: release-output/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Clean temporary Firebase config
+        if: always()
+        run: rm -f app/google-services.json "$RUNNER_TEMP/leskov-signing.jks"

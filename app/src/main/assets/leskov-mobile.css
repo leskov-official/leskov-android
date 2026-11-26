@@ -158,19 +158,60 @@ html[data-leskov-app] #leskov-native-playback-badge { display: none !important; 
     html[data-leskov-app] :is(.sticker-picker,.sticker-category-modal__dialog,.sticker-pack-scroller,.sticker-pack-grid--modal) { scrollbar-width: none !important; -ms-overflow-style: none; }
     html[data-leskov-app] :is(.sticker-picker,.sticker-category-modal__dialog,.sticker-pack-scroller,.sticker-pack-grid--modal)::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
 
-    /* One scroll owner per conversation; header and composer remain in view. */
-    html[data-leskov-app] body.messages-page { height: 100dvh !important; overflow: hidden !important; }
-    html[data-leskov-app]:root body.messages-page .messenger-layout { display: block !important; width: 100% !important; height: 100dvh !important; max-height: 100dvh !important; margin: 0 !important; padding: 8px !important; box-sizing: border-box !important; }
-    html[data-leskov-app]:root body.messages-page.is-leskov-thread .messenger-sidebar { display: none !important; }
-    html[data-leskov-app]:root body.messages-page.is-leskov-thread .messenger-main { display: flex !important; flex-direction: column !important; height: 100% !important; min-height: 0 !important; padding: 12px !important; overflow: hidden !important; box-sizing: border-box !important; gap: 8px !important; }
-    html[data-leskov-app] #messageThread { flex: 1 1 0 !important; min-height: 0 !important; max-height: none !important; margin: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; overscroll-behavior: contain; overflow-anchor: auto; scroll-behavior: auto !important; }
+    /* Dialogs: the website's winter theme must not override the app viewport.
+       The list and search results share a scroll container; the thread is independent. */
+    html[data-leskov-app]:root body.messages-page {
+        height: 100% !important; min-height: 0 !important; overflow: hidden !important;
+        margin: 0 !important; padding: 0 !important;
+    }
+    html[data-leskov-app]:root body.messages-page > .messenger-layout {
+        display: block !important; position: fixed !important; inset: 0 !important;
+        width: 100% !important; max-width: 100% !important;
+        height: 100% !important; min-height: 0 !important; max-height: none !important;
+        margin: 0 !important; padding: 8px !important; box-sizing: border-box !important;
+        overflow: hidden !important;
+    }
+    html[data-leskov-app]:root body.messages-page > .messenger-layout > :is(.messenger-main,.messenger-sidebar) {
+        position: relative !important; inset: auto !important; width: 100% !important;
+        max-width: 100% !important; height: 100% !important; min-height: 0 !important;
+        max-height: none !important; margin: 0 !important; padding: 10px !important;
+        box-sizing: border-box !important; min-width: 0 !important;
+    }
+    html[data-leskov-app]:root body.messages-page.is-leskov-thread > .messenger-layout > .messenger-sidebar,
+    html[data-leskov-app]:root body.messages-page.is-leskov-dialogs > .messenger-layout > .messenger-main { display: none !important; }
+    html[data-leskov-app]:root body.messages-page.is-leskov-dialogs > .messenger-layout > .messenger-sidebar {
+        display: flex !important; flex-direction: column !important; gap: 10px !important;
+        overflow: auto !important; overscroll-behavior: contain;
+    }
+    html[data-leskov-app]:root body.messages-page.is-leskov-dialogs .messenger-sidebar > * { flex: 0 0 auto !important; min-width: 0 !important; }
+    html[data-leskov-app]:root body.messages-page.is-leskov-dialogs :is([data-messenger-dialogs],[data-messenger-friends]) {
+        max-height: none !important; min-height: 0 !important; overflow: visible !important;
+    }
+    html[data-leskov-app]:root body.messages-page .messenger-sidebar .user-list-item {
+        min-width: 0 !important; max-width: 100% !important; box-sizing: border-box !important;
+    }
+    html[data-leskov-app]:root body.messages-page.is-leskov-thread > .messenger-layout > .messenger-main {
+        display: flex !important; flex-direction: column !important; gap: 6px !important;
+        overflow-y: auto !important; overflow-x: hidden !important;
+        overscroll-behavior: contain;
+    }
+    html[data-leskov-app]:root body.messages-page #messageThread {
+        flex: 1 1 0 !important; min-height: 96px !important; max-height: none !important;
+        margin: 0 !important; overflow-y: auto !important; overflow-x: hidden !important;
+        overscroll-behavior: contain; overflow-anchor: auto; scroll-behavior: auto !important;
+    }
     html[data-leskov-app]:root body.messages-page :is(.messenger-head,#messageComposer,#typingIndicator) { flex-shrink: 0 !important; }
-    html[data-leskov-app]:root body.messages-page .messenger-head { flex-wrap: wrap; gap: 8px; }
-    html[data-leskov-app] #messageComposer { position: relative !important; bottom: auto !important; margin: 0 !important; padding-top: 8px !important; }
-    html[data-leskov-app] #leskov-dialogs-back { display: block; color: var(--accent,#2863f0); text-decoration: none; font-size: 13px; padding: 4px 0; }
-    html[data-leskov-app]:root body.messages-page.is-leskov-dialogs .messenger-main { display: none !important; }
-    html[data-leskov-app]:root body.messages-page.is-leskov-dialogs .messenger-sidebar { display: flex !important; flex-direction: column !important; height: 100% !important; min-height: 0 !important; position: static !important; padding: 12px !important; overflow: hidden !important; box-sizing: border-box !important; }
-    html[data-leskov-app]:root body.messages-page [data-messenger-dialogs] { flex: 1 1 0 !important; min-height: 0 !important; max-height: none !important; overflow-y: auto !important; overscroll-behavior: contain; }
+    html[data-leskov-app]:root body.messages-page .messenger-head { flex-wrap: wrap; gap: 6px !important; padding: 8px !important; }
+    html[data-leskov-app]:root body.messages-page .messenger-head > .user-list-item.is-active {
+        grid-template-columns: 52px minmax(0,1fr) !important; padding: 8px !important; gap: 6px !important;
+    }
+    html[data-leskov-app]:root body.messages-page .messenger-head .lsv-peer-hint { grid-column: 2 !important; grid-row: auto !important; justify-self: start !important; max-width: 100% !important; }
+    html[data-leskov-app]:root body.messages-page .messenger-head .messenger-head-actions { grid-column: 1/-1 !important; grid-row: auto !important; gap: 4px !important; }
+    html[data-leskov-app]:root body.messages-page .messenger-head .messenger-head-actions .site-btn { white-space: normal !important; overflow-wrap: anywhere !important; padding: 6px 3px !important; font-size: 11px !important; }
+    html[data-leskov-app]:root body.messages-page #messageComposer { position: relative !important; bottom: auto !important; margin: 0 !important; padding-top: 4px !important; min-width: 0 !important; }
+    html[data-leskov-app]:root body.messages-page #messageComposer #messageInput { min-height: 44px !important; max-height: min(120px, 24dvh) !important; }
+    html[data-leskov-app]:root body.messages-page #leskov-dialogs-back { display: inline-flex; align-items: center; min-height: 36px; color: var(--accent,#2863f0); text-decoration: none; font-size: 14px; }
+
 }
 @media (max-width: 850px) {
     html[data-leskov-app] :is(.toast-host,.toast-notice,.header-notice-dropdown) { max-width: calc(100vw - 24px) !important; box-sizing: border-box !important; }
