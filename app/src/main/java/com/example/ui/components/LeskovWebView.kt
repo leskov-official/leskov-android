@@ -189,6 +189,7 @@ fun LeskovWebView(
                 }
             }
 
+            var clearHistoryAfterLogout = false
             if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
                 WebViewCompat.addWebMessageListener(
                     this, "LeskovPageBridge", setOf("https://${LeskovConstants.HOST}")
@@ -200,8 +201,21 @@ fun LeskovWebView(
                             viewModel.showMessage(state.optString("message").take(500))
                             return@runCatching
                         }
+                        if (state.optString("type") == "logoutResult") {
+                            val id = state.optString("id")
+                            val confirmed = state.optBoolean("confirmed")
+                            if (viewModel.finishLogout(id, confirmed) && confirmed) {
+                                clearHistoryAfterLogout = true
+                                CookieManager.getInstance().flush()
+                                this@apply.loadUrl(LeskovConstants.buildUrl(LeskovConstants.AUTH_PATH,
+                                    viewModel.uiState.value.language))
+                            }
+                            return@runCatching
+                        }
                         val url = state.optString("url")
                         if (!WebNavigation.isTrustedUri(Uri.parse(url))) return@runCatching
+                        if (clearHistoryAfterLogout) return@runCatching
+                        if (state.has("lightTheme")) viewModel.onWebsiteThemeChanged(state.optBoolean("lightTheme"))
                         viewModel.onUrlChanged(url)
                         viewModel.onLanguageDetected(state.optString("language"))
                         val userId = state.optInt("userId", -1)
@@ -223,8 +237,6 @@ fun LeskovWebView(
                     super.onPageStarted(view, url, favicon)
                     documentGeneration++
                     url?.let { viewModel.onPageStarted(it) }
-                    // Catch the server logout even if it immediately redirects to auth.php.
-                    if (url?.contains("auth.php?logout=") == true) viewModel.onUrlChanged(url)
                 }
 
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -265,6 +277,11 @@ fun LeskovWebView(
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     CookieManager.getInstance().flush()
+                    if (clearHistoryAfterLogout && url != null && isInternalUri(Uri.parse(url)) &&
+                        Uri.parse(url).path == "/auth.php") {
+                        view?.clearHistory()
+                        clearHistoryAfterLogout = false
+                    }
 
                     url?.let {
                         Log.d("LeskovNavigation", "Loaded PHP route: ${Uri.parse(it).path}")

@@ -347,4 +347,34 @@ class ExampleRobolectricTest {
       assertTrue(viewModel.uiState.value.isLoggedIn)
     }
   }
+  @Test
+  fun `logout requires matching confirmed server response`() {
+    val vm = LeskovViewModel(app)
+    vm.onUserSessionDetected(42)
+    vm.onUrlChanged("https://lesv.online/auth.php?logout=1")
+    assertTrue(vm.uiState.value.isLoggedIn)
+    val id = requireNotNull(vm.beginLogout())
+    assertEquals(null, vm.beginLogout())
+    vm.onUserSessionDetected(0)
+    assertTrue(vm.uiState.value.isLoggedIn)
+    assertFalse(vm.finishLogout("other", true))
+    assertTrue(vm.finishLogout(id, false))
+    assertTrue(vm.uiState.value.isLoggedIn)
+    val retry = requireNotNull(vm.beginLogout())
+    assertTrue(vm.finishLogout(retry, true))
+    assertFalse(vm.uiState.value.isLoggedIn)
+    assertEquals(0, vm.uiState.value.currentUserId)
+  }
+
+  @Test
+  fun `website theme does not reset guest selected tab`() {
+    val vm = LeskovViewModel(app)
+    vm.onUserSessionDetected(0)
+    vm.onTabSelected(3)
+    vm.onWebsiteThemeChanged(true)
+    vm.onUrlChanged("https://lesv.online/index.php?lang=ru")
+    assertTrue(vm.uiState.value.lightWebsiteTheme)
+    assertTrue(vm.uiState.value.showAuthGate)
+    assertEquals(3, vm.uiState.value.selectedTabIndex)
+  }
 }

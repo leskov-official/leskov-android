@@ -1,6 +1,15 @@
 package com.example.ui.components
 
 import android.webkit.WebView
+import android.net.Uri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import org.json.JSONObject
+import com.example.web.WebNavigation
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -11,15 +20,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import com.example.model.AppLanguage
-import com.example.model.LeskovConstants
 import com.example.model.LeskovStrings
 import com.example.push.FcmTokenManager
 import com.example.media.LeskovMediaService
-import com.example.ui.theme.LeskovBackground
-import com.example.ui.theme.LeskovError
-import com.example.ui.theme.LeskovOnBackground
-import com.example.ui.theme.LeskovPrimary
-import com.example.ui.theme.LeskovTextMuted
 import com.example.viewmodel.LeskovViewModel
 
 @Composable
@@ -30,61 +33,80 @@ fun LeskovDeleteCookiesDialog(
     viewModel: LeskovViewModel
 ) {
     val context = LocalContext.current
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    var submitted by remember { mutableStateOf(false) }
+    val busy = state.logoutRequestId != null
+    LaunchedEffect(busy, submitted) {
+        if (submitted && !busy) onDismiss()
+    }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = LeskovBackground,
+        onDismissRequest = { if (!busy) onDismiss() },
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Text(
                 text = LeskovStrings.signOutConfirmTitle(language),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = LeskovOnBackground
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
         text = {
             Text(
-                text = LeskovStrings.signOutConfirmDesc(language),
+                text = if (busy) LeskovStrings.logoutBusy(language) else LeskovStrings.signOutConfirmDesc(language),
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = LeskovTextMuted
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
         },
         confirmButton = {
             TextButton(
+                enabled = !busy,
                 onClick = {
+                    val page = webView
+                    if (page == null || !WebNavigation.isTrustedUri(Uri.parse(page.url.orEmpty()))) {
+                        viewModel.showMessage(LeskovStrings.logoutUnconfirmed(language))
+                        onDismiss()
+                        return@TextButton
+                    }
+                    val id = viewModel.beginLogout() ?: return@TextButton
+                    submitted = true
+                    // Only the server-confirmed result can clear the local session.
+                    page.postDelayed({ viewModel.finishLogout(id, false) }, 20000)
                     try {
                         LeskovMediaService.stop(context)
-                        val logoutUrl = "${LeskovConstants.BASE_URL}auth.php?logout=1&lang=${language.code}"
-                        FcmTokenManager.unregisterTokenOnServer(context, webView) {
-                            webView?.clearHistory()
-                            webView?.loadUrl(logoutUrl)
-                            viewModel.onUserSessionDetected(0)
-                            viewModel.showMessage(LeskovStrings.signedOutToast(language))
+                        FcmTokenManager.unregisterTokenOnServer(context, page) {
+                            if (viewModel.uiState.value.logoutRequestId == id) {
+                                if (!WebNavigation.isTrustedUri(Uri.parse(page.url.orEmpty()))) {
+                                    viewModel.finishLogout(id, false)
+                                } else page.evaluateJavascript(
+                                    "window.__leskovAppShell ? window.__leskovAppShell.logout(${JSONObject.quote(id)}) : false;"
+                                ) { result -> if (result != "true") viewModel.finishLogout(id, false) }
+                            }
                         }
                     } catch (_: Exception) {
-                        webView?.loadUrl("${LeskovConstants.BASE_URL}auth.php?logout=1&lang=${language.code}")
+                        viewModel.finishLogout(id, false)
                     }
-                    onDismiss()
                 },
                 modifier = Modifier.testTag("confirm_delete_cookies_button")
             ) {
                 Text(
                     text = LeskovStrings.signOutBtn(language),
-                    color = LeskovError,
+                    color = MaterialTheme.colorScheme.error,
                     fontWeight = FontWeight.Bold
                 )
             }
         },
         dismissButton = {
             TextButton(
+                enabled = !busy,
                 onClick = onDismiss,
                 modifier = Modifier.testTag("cancel_delete_cookies_button")
             ) {
                 Text(
                     text = LeskovStrings.cancelBtn(language),
-                    color = LeskovPrimary
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }

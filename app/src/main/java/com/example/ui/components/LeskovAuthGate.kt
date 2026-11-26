@@ -53,15 +53,7 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.model.AppLanguage
 import com.example.model.LeskovStrings
-import com.example.ui.theme.LeskovAccentGlow
-import com.example.ui.theme.LeskovAccentLight
-import com.example.ui.theme.LeskovBackground
-import com.example.ui.theme.LeskovOnBackground
-import com.example.ui.theme.LeskovPrimary
-import com.example.ui.theme.LeskovPrimaryVariant
-import com.example.ui.theme.LeskovSurface
-import com.example.ui.theme.LeskovSurfaceVariant
-import com.example.ui.theme.LeskovTextMuted
+import com.example.model.LESKOV_NAV_TABS
 
 @Composable
 fun LeskovAuthGate(
@@ -89,7 +81,7 @@ fun LeskovAuthGate(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(Color(0xFF131630), LeskovBackground)))
+            .background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.background)))
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -98,8 +90,8 @@ fun LeskovAuthGate(
                 .widthIn(max = 370.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(22.dp))
-                .background(LeskovSurface.copy(alpha = 0.96f))
-                .border(1.dp, LeskovPrimary.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
+                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(24.dp))
                 .padding(horizontal = 16.dp, vertical = 18.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -110,7 +102,7 @@ fun LeskovAuthGate(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .border(2.dp, LeskovPrimary.copy(alpha = 0.5f), CircleShape),
+                    .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
@@ -127,13 +119,13 @@ fun LeskovAuthGate(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
-                    .background(LeskovSurfaceVariant)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(horizontal = 12.dp, vertical = 5.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.MusicNote,
+                    imageVector = LESKOV_NAV_TABS.getOrNull(selectedTabIndex)?.unselectedIcon ?: Icons.Default.MusicNote,
                     contentDescription = null,
-                    tint = LeskovAccentGlow,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(14.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -143,7 +135,7 @@ fun LeskovAuthGate(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp,
-                        color = LeskovAccentLight
+                        color = MaterialTheme.colorScheme.primary
                     )
                 )
             }
@@ -157,7 +149,7 @@ fun LeskovAuthGate(
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        color = LeskovOnBackground,
+                        color = MaterialTheme.colorScheme.onBackground,
                         lineHeight = 21.sp
                     ),
                     textAlign = TextAlign.Center
@@ -170,7 +162,7 @@ fun LeskovAuthGate(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = LeskovTextMuted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 18.sp
                     ),
                     textAlign = TextAlign.Center
@@ -184,14 +176,16 @@ fun LeskovAuthGate(
                 onClick = onLoginClick,
                 interactionSource = loginInteraction,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = LeskovPrimaryVariant,
-                    contentColor = Color.White
+                    containerColor = Color.Transparent,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 44.dp)
                     .scale(loginScale)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary)))
                     .testTag("auth_gate_login_button")
             ) {
                 Text(
@@ -210,9 +204,9 @@ fun LeskovAuthGate(
                 onClick = onRegisterClick,
                 interactionSource = registerInteraction,
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = LeskovAccentLight
+                    contentColor = MaterialTheme.colorScheme.primary
                 ),
-                border = androidx.compose.foundation.BorderStroke(1.dp, LeskovPrimary.copy(alpha = 0.5f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -236,7 +230,7 @@ fun LeskovAuthGate(
                 text = LeskovStrings.publicNote(language),
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = 12.sp,
-                    color = LeskovTextMuted.copy(alpha = 0.85f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                     lineHeight = 16.sp
                 ),
                 textAlign = TextAlign.Center
@@ -252,28 +246,29 @@ fun LeskovAuthGate(
             ) {
                 TextButton(
                     onClick = onOpenTerms,
-                    modifier = Modifier.weight(1f).testTag("auth_gate_terms_link")
+                    modifier = Modifier.weight(0.7f).testTag("auth_gate_terms_link")
                 ) {
                     Text(
                         text = LeskovStrings.terms(language),
                         style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            color = LeskovAccentGlow
+                            color = MaterialTheme.colorScheme.primary
                         )
                     )
                 }
-                Text(text = "·", color = LeskovTextMuted)
+                Text(text = "·", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(
                     onClick = onOpenPrivacy,
-                    modifier = Modifier.weight(1f).testTag("auth_gate_privacy_link")
+                    modifier = Modifier.weight(1.3f).testTag("auth_gate_privacy_link")
                 ) {
                     Text(
                         text = LeskovStrings.privacy(language),
+                        textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            color = LeskovAccentGlow
+                            color = MaterialTheme.colorScheme.primary
                         )
                     )
                 }
@@ -287,7 +282,7 @@ fun LeskovAuthGate(
                     text = LeskovStrings.backToHome(language),
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontSize = 12.sp,
-                        color = LeskovTextMuted
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
             }

@@ -336,6 +336,18 @@ object LeskovStrings {
         AppLanguage.RU -> "Выйти"
     }
 
+    fun logoutUnconfirmed(lang: AppLanguage): String = when (lang) {
+        AppLanguage.RU -> "Сервер не подтвердил выход. Проверьте соединение и повторите."
+        AppLanguage.ET -> "Server ei kinnitanud väljalogimist. Kontrolli ühendust ja proovi uuesti."
+        AppLanguage.EN -> "Sign-out was not confirmed. Check your connection and try again."
+    }
+
+    fun logoutBusy(lang: AppLanguage): String = when (lang) {
+        AppLanguage.RU -> "Завершаем сессию…"
+        AppLanguage.ET -> "Seansi lõpetamine…"
+        AppLanguage.EN -> "Signing out…"
+    }
+
     fun signedOutToast(lang: AppLanguage): String = when (lang) {
         AppLanguage.ET -> "Olete kontost välja loginud"
         AppLanguage.EN -> "You have signed out"

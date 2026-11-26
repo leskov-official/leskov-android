@@ -41,10 +41,6 @@ import androidx.compose.ui.unit.sp
 import com.example.model.AppLanguage
 import com.example.model.LESKOV_NAV_TABS
 import com.example.model.LeskovStrings
-import com.example.ui.theme.LeskovAccentGlow
-import com.example.ui.theme.LeskovSurface
-import com.example.ui.theme.LeskovSurfaceSelected
-import com.example.ui.theme.LeskovTextNavInactive
 
 /** Six equal tabs fit the screen; selected tabs never move out of view. */
 @Composable
@@ -54,16 +50,16 @@ fun LeskovBottomBar(selectedIndex: Int, language: AppLanguage,
     // Keep this small navigation strip stable at large system fonts. Full labels remain
     // available to TalkBack; page content can still be magnified with WebView pinch zoom.
     CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale.coerceIn(0.85f, 1.15f))) {
-        Surface(modifier = modifier.fillMaxWidth(), color = LeskovSurface, tonalElevation = 2.dp) {
+        Surface(modifier = modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
                 Row(Modifier.widthIn(max = 640.dp).fillMaxWidth().navigationBarsPadding()
                     .selectableGroup().padding(horizontal = 4.dp, vertical = 3.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly) {
                     LESKOV_NAV_TABS.forEachIndexed { index, tab ->
                         val selected = index == selectedIndex
                         val label = LeskovStrings.navLabel(tab.route, language)
-                        val tint by animateColorAsState(if (selected) LeskovAccentGlow else LeskovTextNavInactive,
+                        val tint by animateColorAsState(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             label = "navTint")
                         Column(Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(12.dp))
                             .semantics { contentDescription = label }
@@ -71,14 +67,14 @@ fun LeskovBottomBar(selectedIndex: Int, language: AppLanguage,
                             .testTag("nav_tab_${tab.route}"),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center) {
-                            Box(Modifier.size(width = 36.dp, height = 24.dp).clip(RoundedCornerShape(12.dp))
-                                .background(if (selected) LeskovSurfaceSelected else Color.Transparent),
+                            Box(Modifier.size(width = 38.dp, height = 27.dp).clip(RoundedCornerShape(12.dp))
+                                .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent),
                                 contentAlignment = Alignment.Center) {
-                                Icon(if (selected) tab.selectedIcon else tab.unselectedIcon,
+                                Icon(tab.unselectedIcon,
                                     contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
                             }
                             Spacer(Modifier.height(2.dp))
-                            Text(label, color = tint, fontSize = 9.5.sp, lineHeight = 12.sp,
+                            Text(label, color = tint, fontSize = 10.sp, lineHeight = 12.sp,
                                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.labelSmall)

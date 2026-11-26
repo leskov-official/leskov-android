@@ -1,17 +1,17 @@
-# LESKOV for Android · 3.4.4
+# LESKOV for Android · 3.4.5
 
 Android client for [LESKOV](https://lesv.online/) — a platform for artists and their communities.
 
 [![Android CI](https://github.com/leskov-official/leskov-android/actions/workflows/android.yml/badge.svg)](https://github.com/leskov-official/leskov-android/actions/workflows/android.yml)
 
-**Release status:** 3.4.4 is a release candidate until the signed APK passes device and security acceptance. Debug artifacts are for developers only. No antivirus or Google Play Protect approval is implied by a successful build.
+**Release status:** 3.4.5 is a release candidate until the signed APK passes device and security acceptance. Debug artifacts are for developers only. No antivirus or Google Play Protect approval is implied by a successful build.
 
 | | |
 |---|---|
 | Android | 8.0+ (API 26) |
 | Compile / target SDK | 36 |
 | Application ID | `com.aistudio.leskov.musix` (unchanged) |
-| Version | 3.4.4 / versionCode 12 |
+| Version | 3.4.5 / versionCode 13 |
 | Architecture | Kotlin, Jetpack Compose, Android WebView, native MediaSession, Firebase Cloud Messaging |
 | Languages | Russian, Estonian, English |
 
@@ -23,7 +23,11 @@ Android client for [LESKOV](https://lesv.online/) — a platform for artists and
 
 Use only a verified signed release APK. Compare the SHA-256 checksum with the release notes. Keep Google Play Protect enabled. If installation is blocked as harmful, stop and contact the developer. The web app is available as an alternative.
 
-## What is in 3.4.4
+## What is in 3.4.5
+
+- Server-confirmed POST logout, responsive messenger/player, theme-matched native guest and navigation surfaces. See [3.4.5 acceptance](docs/ANDROID_3_4_5_RU.md).
+
+## Inherited 3.4.4 improvements
 
 - Attachment selections now require a resolvable external content provider and an explicit temporary read grant. App-owned and same-UID providers, non-content URIs and invalid multi-file selections are rejected. A result from a navigated-away document is discarded.
 - Cloud backup and Android device-to-device transfer exclude app-private storage, preferences, databases and WebView session state.
@@ -70,18 +74,18 @@ Configure the **Variable** `RELEASE_CERT_SHA256` with the independently known SH
 
 Protect `main`, review workflow changes and restrict write access before running signing jobs. Keep an encrypted offline backup of the existing key.
 
-Run **Actions → LESKOV Android — signed release candidate → Run workflow → main**. Download `LESKOV-3.4.4-signed-candidate` after all steps succeed. It contains a signed APK, AAB, APK and AAB signature reports, package metadata, OSV audit evidence, SHA256SUMS and source commit. Verify locally:
+Run **Actions → LESKOV Android — signed release candidate → Run workflow → main**. Download `LESKOV-3.4.5-signed-candidate` after all steps succeed. It contains a signed APK, AAB, APK and AAB signature reports, package metadata, OSV audit evidence, SHA256SUMS and source commit. Verify locally:
 
 ```bash
 sha256sum -c SHA256SUMS.txt
-apksigner verify --verbose --print-certs LESKOV-3.4.4.apk
+apksigner verify --verbose --print-certs LESKOV-3.4.5.apk
 ```
 
 Do not distribute until [the release acceptance checklist](docs/RELEASE_CHECKLIST_RU.md) passes. If Play Protect blocks a legitimate APK after review, use the [official appeal procedure](https://support.google.com/googleplay/android-developer/contact/protectappeals). Do not instruct users to disable protection. Publish the reviewed APK and its checksum/report to GitHub Releases and the LESKOV admin installation page only after approval of the release by the maintainer.
 
 ## Security and privacy
 
-The Android client uses HTTPS and first-party web messaging. Camera and microphone support calls and recording; notifications support messages and calls; media service supports playback controls. The backend and third-party dependencies are also part of the security review. On release builds, the OSV check sends only public Maven coordinates and versions; it stops signing on known matches or an incomplete check. The separate audit artifact records its result. It does not cover every library, build plugin, native binary or website script. For a Firebase HTTP 400, follow [the diagnostics guide](docs/ANDROID_3_4_4_RU.md) rather than changing the package or signing key. The 3.4.3 VirusTotal result does not apply to 3.4.4. A signature proves integrity and signing identity, not that the software is malware-free.
+The Android client uses HTTPS and first-party web messaging. Camera and microphone support calls and recording; notifications support messages and calls; media service supports playback controls. The backend and third-party dependencies are also part of the security review. On release builds, the OSV check sends only public Maven coordinates and versions; it stops signing on known matches or an incomplete check. The separate audit artifact records its result. It does not cover every library, build plugin, native binary or website script. For a Firebase HTTP 400, follow [the diagnostics guide](docs/ANDROID_3_4_4_RU.md) rather than changing the package or signing key. The 3.4.4 VirusTotal result does not apply to 3.4.5. A signature proves integrity and signing identity, not that the software is malware-free.
 
 Report security issues privately to [info@lesv.info](mailto:info@lesv.info), without including account credentials or private messages. [Privacy policy](https://lesv.online/privacy_policy.php) · [Terms](https://lesv.online/terms.php).
 
