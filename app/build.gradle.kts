@@ -26,8 +26,8 @@ android {
     applicationId = "com.aistudio.leskov.musix"
     minSdk = 26
     targetSdk = 36
-    versionCode = 11
-    versionName = "3.4.3"
+    versionCode = 12
+    versionName = "3.4.4"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -131,4 +131,24 @@ dependencies {
   androidTestImplementation(libs.androidx.runner)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+// Resolved (including transitive) runtime modules, not just declared version aliases.
+// Run with --no-configuration-cache; the release workflow scans these before loading the key.
+tasks.register("exportReleaseDependencies") {
+  doLast {
+    val graph = configurations.getByName("releaseRuntimeClasspath").incoming.resolutionResult
+    check(graph.allDependencies.none { it is org.gradle.api.artifacts.result.UnresolvedDependencyResult }) {
+      "Unresolved release runtime dependencies; cannot complete the security inventory"
+    }
+    val coordinates = graph.allComponents.mapNotNull {
+      (it.id as? org.gradle.api.artifacts.component.ModuleComponentIdentifier)?.let { id ->
+        "${id.group}:${id.module}\t${id.version}"
+      }
+    }.distinct().sorted()
+    check(coordinates.isNotEmpty()) { "Empty release dependency inventory" }
+    val report = layout.buildDirectory.file("reports/security/release-dependencies.tsv").get().asFile
+    report.parentFile.mkdirs()
+    report.writeText(coordinates.joinToString("\n", postfix = "\n"))
+  }
 }

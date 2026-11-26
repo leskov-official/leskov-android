@@ -217,9 +217,11 @@ fun LeskovWebView(
                 }
             }
 
+            var documentGeneration = 0L
             webViewClient = object : WebViewClient() {
                 override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                     super.onPageStarted(view, url, favicon)
+                    documentGeneration++
                     url?.let { viewModel.onPageStarted(it) }
                     // Catch the server logout even if it immediately redirects to auth.php.
                     if (url?.contains("auth.php?logout=") == true) viewModel.onUrlChanged(url)
@@ -339,7 +341,15 @@ fun LeskovWebView(
                         filePathCallback.onReceiveValue(null)
                         return true
                     }
-                    return onFileChooserRequested(filePathCallback, fileChooserParams)
+                    val generation = documentGeneration
+                    val pageUrl = webView?.url
+                    val guarded = ValueCallback<Array<Uri>> { selected ->
+                        filePathCallback.onReceiveValue(selected?.takeIf {
+                            generation == documentGeneration && pageUrl == webView?.url &&
+                                isInternalUri(Uri.parse(webView?.url.orEmpty()))
+                        })
+                    }
+                    return onFileChooserRequested(guarded, fileChooserParams)
                 }
 
                 override fun onPermissionRequest(request: PermissionRequest?) {

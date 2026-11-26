@@ -69,6 +69,12 @@ object LeskovStrings {
         AppLanguage.EN -> "End the call before opening another page"
     }
 
+    fun unsafeAttachment(lang: AppLanguage): String = when (lang) {
+        AppLanguage.RU -> "Файл отклонён: нет безопасного доступа. Выберите его через системный менеджер файлов."
+        AppLanguage.ET -> "Fail lükati tagasi: turvaline ligipääs puudub. Vali fail süsteemi failihaldurist."
+        AppLanguage.EN -> "File rejected: safe access is unavailable. Select it using the system file manager."
+    }
+
     fun notificationStatus(lang: AppLanguage, status: String): String {
         val messages = when (status) {
             "permission_denied" -> listOf("Уведомления запрещены в настройках Android", "Androidi teavitused on keelatud", "Notifications are disabled in Android settings")
