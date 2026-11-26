@@ -269,7 +269,7 @@ private fun MoreSheetItem(
                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onClick()
                 })
-            .padding(vertical = 8.dp, horizontal = 8.dp)
+            .padding(vertical = 5.dp, horizontal = 8.dp)
             .testTag(tag),
         verticalAlignment = Alignment.CenterVertically
     ) {
