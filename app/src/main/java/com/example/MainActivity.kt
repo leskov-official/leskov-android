@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.example.web.WebNavigation
+import com.example.web.UploadUriPolicy
 import com.example.model.AppLanguage
 import com.example.model.LeskovStrings
 import com.example.model.LeskovConstants
@@ -132,17 +133,25 @@ class MainActivity : ComponentActivity() {
                     },
                     getWebView = { webViewRef },
                     onOpenFileChooser = { callback, params ->
-                        pendingFilePathCallback?.onReceiveValue(null)
-                        pendingFilePathCallback = callback
-                        try {
-                            val intent = params.createIntent()
-                            fileChooserLauncher.launch(intent)
+                        if (pendingFilePathCallback != null || !isTrustedCurrentPage() ||
+                            params.mode !in listOf(WebChromeClient.FileChooserParams.MODE_OPEN,
+                                WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE)) {
+                            callback.onReceiveValue(null)
                             true
-                        } catch (_: Exception) {
-                            pendingFilePathCallback?.onReceiveValue(null)
-                            pendingFilePathCallback = null
-                            viewModel.showMessage("Выбор файлов недоступен")
-                            false
+                        } else {
+                            pendingFilePathCallback = callback
+                            try {
+                                val intent = params.createIntent().apply {
+                                    addCategory(Intent.CATEGORY_OPENABLE)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                fileChooserLauncher.launch(intent)
+                            } catch (_: Exception) {
+                                pendingFilePathCallback = null
+                                callback.onReceiveValue(null)
+                                viewModel.showMessage("Выбор файлов недоступен")
+                            }
+                            true
                         }
                     },
                     onNavigate = { url -> navigatePreservingMusic(url) },
@@ -194,12 +203,17 @@ class MainActivity : ComponentActivity() {
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (pendingFilePathCallback != null) {
-            val uriResult = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
-            pendingFilePathCallback?.onReceiveValue(
-                uriResult?.filter { it.scheme == "content" }?.takeIf { it.isNotEmpty() && isTrustedCurrentPage() }?.toTypedArray()
-            )
-            pendingFilePathCallback = null
+        val callback = pendingFilePathCallback
+        pendingFilePathCallback = null
+        if (callback != null) {
+            val selected = runCatching {
+                WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+            }.getOrNull()
+            val safe = if (isTrustedCurrentPage()) UploadUriPolicy.validate(this, selected) else null
+            if (selected != null && safe == null) {
+                viewModel.showMessage(LeskovStrings.unsafeAttachment(viewModel.uiState.value.language))
+            }
+            callback.onReceiveValue(safe)
         }
     }
 

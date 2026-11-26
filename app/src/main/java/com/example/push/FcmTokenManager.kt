@@ -25,6 +25,7 @@ object FcmTokenManager {
     private const val KEY_FCM_TOKEN = "fcm_token"
     private const val KEY_LAST_SYNCED_USER = "last_synced_user_id"
     private const val KEY_LAST_SYNCED_AT = "last_synced_at"
+    private const val KEY_TOKEN_FAILURE = "last_token_failure"
     private val callbacks = ConcurrentHashMap<String, (String) -> Unit>()
 
     /** WebView evaluateJavascript does NOT await JavaScript Promises. This bridge does. */
@@ -137,14 +138,25 @@ object FcmTokenManager {
 
     fun saveToken(context: Context, token: String) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().remove(KEY_TOKEN_FAILURE).apply()
         if (prefs.getString(KEY_FCM_TOKEN, null) != token) {
-            prefs.edit().putString(KEY_FCM_TOKEN, token).remove(KEY_LAST_SYNCED_USER).apply()
+            prefs.edit().putString(KEY_FCM_TOKEN, token).remove(KEY_LAST_SYNCED_USER)
+                .remove(KEY_LAST_SYNCED_AT).putBoolean("delivery_verified", false).apply()
         }
     }
 
     fun getSavedToken(context: Context): String? {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getString(KEY_FCM_TOKEN, null)
+    }
+
+    private fun recordTokenFailure(context: Context, error: Exception) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            .remove(KEY_LAST_SYNCED_USER).remove(KEY_LAST_SYNCED_AT)
+            .putBoolean("delivery_verified", false)
+            .putBoolean(KEY_TOKEN_FAILURE, true).apply()
+        // Log only a failure category, never credentials, registration tokens or response bodies.
+        Log.w(TAG, "FCM token request failed: ${error.javaClass.simpleName}")
     }
 
     /** True only after a REAL google-services.json has initialized Firebase. */
@@ -161,7 +173,7 @@ object FcmTokenManager {
         }
         FirebaseMessaging.getInstance().token
             .addOnSuccessListener { token -> saveToken(context, token) }
-            .addOnFailureListener { error -> Log.e(TAG, "FCM token request failed", error) }
+            .addOnFailureListener { error -> recordTokenFailure(context, error) }
     }
 
     /** Syncs the device token with the COMPANION server endpoint via an authenticated first-party WebView. */
@@ -202,7 +214,7 @@ object FcmTokenManager {
                     })
                 }
             }
-        }.addOnFailureListener { Log.w(TAG, "Unable to refresh FCM token", it); report("token_failed") }
+        }.addOnFailureListener { recordTokenFailure(context, it); report("token_failed") }
     }
 
     fun publishCurrentState(context: Context, webView: WebView, userId: Int, language: AppLanguage) {
@@ -213,6 +225,7 @@ object FcmTokenManager {
             userId <= 0 -> "login_required"
             !isFirebaseConfigured(context) -> "firebase_missing"
             !androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled() -> "permission_denied"
+            prefs.getBoolean(KEY_TOKEN_FAILURE, false) -> "token_failed"
             token != null && marker == "$userId:${token.hashCode()}" && prefs.getBoolean("delivery_verified", false) -> "ready"
             else -> "unknown"
         }
@@ -226,6 +239,7 @@ object FcmTokenManager {
             .put("enabled", effective == "ready")
             .put("message", if (effective == "unknown") "" else com.example.model.LeskovStrings.notificationStatus(language, effective))
         webView?.post {
+            if (!com.example.web.WebNavigation.isTrustedUri(Uri.parse(webView.url.orEmpty()))) return@post
             webView.evaluateJavascript("window.__leskovAppShell && window.__leskovAppShell.setPushStatus($payload);", null)
         }
     }
@@ -295,7 +309,8 @@ object FcmTokenManager {
     fun unregisterTokenOnServer(context: Context, webView: WebView?, onComplete: () -> Unit) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val token = prefs.getString(KEY_FCM_TOKEN, null)
-        prefs.edit().remove(KEY_LAST_SYNCED_USER).remove(KEY_FCM_TOKEN).remove("delivery_verified").apply()
+        prefs.edit().remove(KEY_LAST_SYNCED_USER).remove(KEY_LAST_SYNCED_AT).remove(KEY_TOKEN_FAILURE)
+            .remove(KEY_FCM_TOKEN).remove("delivery_verified").apply()
         fun done() {
             if (isFirebaseConfigured(context)) {
                 FirebaseMessaging.getInstance().deleteToken().addOnFailureListener {

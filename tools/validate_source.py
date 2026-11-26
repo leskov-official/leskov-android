@@ -17,15 +17,8 @@ else:
  try:
   import json
   firebase=json.loads(_config.read_text())
-  clients=firebase.get('client', [])
-  package_names=[c.get('client_info',{}).get('android_client_info',{}).get('package_name') for c in clients]
-  keys=[str(k.get('current_key','')) for c in clients for k in c.get('api_key',[])]
-  project_number=str(firebase.get('project_info',{}).get('project_number',''))
-  check('Real Firebase configuration matches LESKOV applicationId',
-        'com.aistudio.leskov.musix' in package_names and
-        project_number not in ('', '100000000000') and
-        firebase.get('project_info',{}).get('project_id') == 'leskov-b3863' and
-        bool(keys) and all('Fake' not in k for k in keys))
+  from firebase_config import valid_config
+  check('Firebase project, matching package, app ID and key format', valid_config(firebase))
  except Exception as e:
   check('Firebase config JSON parse: '+str(type(e).__name__),False)
 s=(root/'app/build.gradle.kts').read_text()

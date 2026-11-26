@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -27,11 +27,11 @@ jobs:
         run: |
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'platform-tools'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '9.3.1'
           cache-read-only: true
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Source and browser regressions
@@ -41,6 +41,7 @@ jobs:
           python3 tools/validate_source.py
           python3 tools/test_mobile_backend.py
           python3 tools/test_verify_release.py
+          python3 tools/test_security_release.py
           python3 tools/test_dialog_layout.py
           APP_CSS_FIRST=1 python3 tools/test_dialog_layout.py
       - name: Load real Firebase configuration
@@ -54,6 +55,18 @@ jobs:
           python3 tools/validate_source.py
       - name: Test and lint before signing
         run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:lintRelease
+      - name: Audit resolved runtime dependencies before signing
+        run: |
+          gradle --no-daemon --no-configuration-cache :app:exportReleaseDependencies
+          python3 tools/audit_dependencies.py app/build/reports/security/release-dependencies.tsv app/build/reports/security/osv-report.json
+      - name: Upload dependency audit evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: LESKOV-3.4.4-dependency-audit
+          path: app/build/reports/security/
+          if-no-files-found: warn
+          retention-days: 14
       - name: Build with existing release signing key
         env:
           SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
@@ -83,14 +96,19 @@ jobs:
           "$SDK_BIN/apksigner" verify --verbose --print-certs "$APK" > release-output/signature.txt
           "$SDK_BIN/aapt" dump badging "$APK" > release-output/apk-info.txt
           python3 tools/verify_release.py release-output/signature.txt release-output/apk-info.txt
-          cp "$APK" release-output/LESKOV-3.4.3.apk
-          cp app/build/outputs/bundle/release/app-release.aab release-output/LESKOV-3.4.3.aab
-          (cd release-output && sha256sum LESKOV-3.4.3.apk LESKOV-3.4.3.aab > SHA256SUMS.txt)
+          LC_ALL=C jarsigner -verify app/build/outputs/bundle/release/app-release.aab > release-output/aab-signature.txt
+          grep -q '^jar verified\.' release-output/aab-signature.txt
+          LC_ALL=C keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab > release-output/aab-certificate.txt
+          python3 tools/verify_aab_certificate.py release-output/aab-certificate.txt
+          cp app/build/reports/security/release-dependencies.tsv app/build/reports/security/osv-report.json release-output/
+          cp "$APK" release-output/LESKOV-3.4.4.apk
+          cp app/build/outputs/bundle/release/app-release.aab release-output/LESKOV-3.4.4.aab
+          (cd release-output && sha256sum LESKOV-3.4.4.apk LESKOV-3.4.4.aab > SHA256SUMS.txt)
           printf '%s\n' "$GITHUB_SHA" > release-output/source-commit.txt
       - name: Upload candidate (not a public release)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: LESKOV-3.4.3-signed-candidate
+          name: LESKOV-3.4.4-signed-candidate
           path: release-output/
           if-no-files-found: error
           retention-days: 14
