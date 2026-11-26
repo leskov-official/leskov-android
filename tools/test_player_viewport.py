@@ -26,6 +26,10 @@ with sync_playwright() as pw:
                     assert p.locator('.header-player-backdrop').evaluate('(e)=>{let r=e.getBoundingClientRect();return Math.abs(r.top)<1 && Math.abs(r.left)<1 && Math.abs(r.bottom-innerHeight)<2 && Math.abs(r.right-innerWidth)<2}')
                     assert p.locator('.header-player-dialog').evaluate('(e)=>e.scrollHeight>e.clientHeight && e.scrollWidth<=e.clientWidth+1')
                 assert p.locator('.header-player-track').last.evaluate('(e)=>e.getBoundingClientRect().bottom<=innerHeight+1'), (w,h,theme,app_first,p.evaluate('''()=>[...document.querySelectorAll('.header-player-dialog,.header-player-shell,.header-player-playlist,.header-player-track:last-child')].map(e=>[e.className,e.scrollTop,e.scrollHeight,e.clientHeight,e.getBoundingClientRect().bottom,getComputedStyle(e).overflowY,getComputedStyle(e).scrollBehavior])'''))
+                # A four-track playlist must end at the last item without a trailing viewport-sized blank panel.
+                p.evaluate("""()=>[...document.querySelectorAll('.header-player-track')].slice(4).forEach(e=>e.remove())""")
+                p.locator('.header-player-dialog').evaluate('(e)=>e.scrollTop=e.scrollHeight')
+                assert p.locator('.header-player-dialog').evaluate("""e=>{const last=e.querySelector('.header-player-track:last-child');return e.getBoundingClientRect().bottom-last.getBoundingClientRect().bottom<=35}""")
                 p.evaluate('document.querySelector("#headerPlayerPanel").hidden=true')
                 assert p.locator('#headerPlayerPanel').is_hidden()
                 count+=1

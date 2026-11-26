@@ -42,6 +42,17 @@ class CompactChromeTest {
         assertTrue(compose.onNodeWithTag("auth_gate_register_button").assertIsDisplayed().getUnclippedBoundsInRoot().let { it.bottom - it.top <= 56.dp })
     }
 
+    @Test fun `guest more menu hides account settings and notifications`() {
+        compose.setContent {
+            MyApplicationTheme {
+                LeskovMoreBottomSheet(false, AppLanguage.RU, {}, {}, {}, {}, {}, {})
+            }
+        }
+        compose.onNodeWithTag("sheet_settings_item").assertDoesNotExist()
+        compose.onNodeWithTag("sheet_notifications_item").assertDoesNotExist()
+        compose.onNodeWithTag("sheet_terms_item").assertIsDisplayed()
+    }
+
     @Test fun `more menu settings remain compact with large system font`() {
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {

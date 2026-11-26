@@ -128,7 +128,7 @@ fun LeskovMoreBottomSheet(
             Spacer(modifier = Modifier.height(8.dp))
 
             // 1. Account Settings (Friendly subtitle, no raw technical URL)
-            MoreSheetItem(
+            if (isLoggedIn) MoreSheetItem(
                 icon = Icons.Outlined.Settings,
                 title = LeskovStrings.sheetSettings(language),
                 subtitle = LeskovStrings.sheetSettingsSubtitle(language),
@@ -180,7 +180,7 @@ fun LeskovMoreBottomSheet(
             )
 
             // 5. Device notification permission and configuration feedback.
-            MoreSheetItem(
+            if (isLoggedIn) MoreSheetItem(
                 icon = Icons.Outlined.NotificationsActive,
                 title = LeskovStrings.sheetNotifications(language),
                 subtitle = LeskovStrings.sheetNotificationsSubtitle(language),

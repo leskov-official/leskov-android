@@ -10,6 +10,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import org.json.JSONObject
 import com.example.web.WebNavigation
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -54,7 +60,7 @@ fun LeskovDeleteCookiesDialog(
         },
         text = {
             Text(
-                text = if (busy) LeskovStrings.logoutBusy(language) else LeskovStrings.signOutConfirmDesc(language),
+                text = LeskovStrings.signOutConfirmDesc(language),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -91,11 +97,15 @@ fun LeskovDeleteCookiesDialog(
                 },
                 modifier = Modifier.testTag("confirm_delete_cookies_button")
             ) {
-                Text(
-                    text = LeskovStrings.signOutBtn(language),
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Bold
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = LeskovStrings.signOutBtn(language),
+                        modifier = Modifier.alpha(if (busy) 0f else 1f),
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (busy) CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                }
             }
         },
         dismissButton = {
