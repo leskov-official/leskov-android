@@ -62,7 +62,12 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun onWebsiteThemeChanged(light: Boolean) {
-        _uiState.update { it.copy(lightWebsiteTheme = light) }
+        _uiState.update { current ->
+            // Anonymous pages may retain a light website preference in WebView.
+            // It must not recolor the native guest interface or interrupt logout.
+            if (!current.isLoggedIn || current.logoutRequestId != null) current
+            else current.copy(lightWebsiteTheme = light)
+        }
     }
 
     fun beginLogout(): String? {
@@ -77,7 +82,7 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
         _uiState.update { current ->
             if (confirmed) current.copy(logoutRequestId = null, isLoggedIn = false,
                 currentUserId = 0, authChecked = true, showAuthGate = false,
-                showMoreSheet = false, selectedTabIndex = 0,
+                showMoreSheet = false, selectedTabIndex = 0, lightWebsiteTheme = false,
                 statusMessage = com.example.model.LeskovStrings.signedOutToast(current.language))
             else current.copy(logoutRequestId = null,
                 statusMessage = com.example.model.LeskovStrings.logoutUnconfirmed(current.language))
@@ -135,7 +140,7 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun onUserSessionDetected(userId: Int) {
+    fun onUserSessionDetected(userId: Int, lightTheme: Boolean? = null) {
         val loggedIn = userId > 0
         _uiState.update { current ->
             if (current.logoutRequestId != null) return@update current
@@ -143,6 +148,8 @@ class LeskovViewModel(application: Application) : AndroidViewModel(application) 
                 isLoggedIn = loggedIn,
                 currentUserId = userId,
                 authChecked = true,
+                // Apply the reported theme and session together; never inherit another account's theme.
+                lightWebsiteTheme = loggedIn && (lightTheme ?: (current.currentUserId == userId && current.lightWebsiteTheme)),
                 selectedTabIndex = if (!loggedIn && LESKOV_NAV_TABS.getOrNull(current.selectedTabIndex)?.requiresAuth == true) 0 else current.selectedTabIndex,
                 showAuthGate = if (loggedIn) false else current.showAuthGate
             )

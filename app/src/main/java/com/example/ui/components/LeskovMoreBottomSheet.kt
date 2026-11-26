@@ -52,6 +52,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import android.content.SharedPreferences
+import com.example.push.FcmTokenManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,9 +87,20 @@ fun LeskovMoreBottomSheet(
     onClearAppCache: () -> Unit,
     onEnableNotifications: () -> Unit,
     onOpenDeleteCookiesConfirm: () -> Unit,
-    onShowMessage: (String) -> Unit = {}
+    onShowMessage: (String) -> Unit = {},
+    currentUserId: Int = 0
 ) {
     val context = LocalContext.current
+    var registered by remember(currentUserId) { mutableStateOf(FcmTokenManager.isRegisteredForUser(context, currentUserId)) }
+    DisposableEffect(context, currentUserId) {
+        val prefs = context.getSharedPreferences("leskov_fcm_prefs", Context.MODE_PRIVATE)
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            registered = FcmTokenManager.isRegisteredForUser(context, currentUserId)
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        registered = FcmTokenManager.isRegisteredForUser(context, currentUserId)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LeskovCompactContent {
@@ -182,10 +196,10 @@ fun LeskovMoreBottomSheet(
             // 5. Device notification permission and configuration feedback.
             if (isLoggedIn) MoreSheetItem(
                 icon = Icons.Outlined.NotificationsActive,
-                title = LeskovStrings.sheetNotifications(language),
-                subtitle = LeskovStrings.sheetNotificationsSubtitle(language),
-                tag = "sheet_notifications_item",
-                onClick = { onDismiss(); onEnableNotifications() }
+                title = if (registered) LeskovStrings.sheetNotificationCenter(language) else LeskovStrings.sheetNotifications(language),
+                subtitle = if (registered) LeskovStrings.sheetNotificationCenterSubtitle(language) else LeskovStrings.sheetNotificationsSubtitle(language),
+                tag = if (registered) "sheet_notification_center_item" else "sheet_notifications_item",
+                onClick = { onDismiss(); if (registered) onNavigateUrl(LeskovConstants.buildUrl("notifications.php", language)) else onEnableNotifications() }
             )
 
             // 6. Clear App Cache (Keeps Cookies and User Logged In)

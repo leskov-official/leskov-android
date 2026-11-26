@@ -32,7 +32,7 @@ object UploadUriPolicy {
         val clip = data.clipData
         if (clip != null) {
             if (clip.itemCount == 0) return null
-            return (0 until clip.itemCount).map { clip.getItemAt(it).uri ?: return null }
+            return ((0 until clip.itemCount).map { clip.getItemAt(it).uri ?: return null } + listOfNotNull(data.data))
                 .distinct().toTypedArray()
         }
         return data.data?.let { arrayOf(it) }

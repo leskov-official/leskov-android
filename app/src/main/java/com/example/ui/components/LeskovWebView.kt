@@ -75,7 +75,7 @@ fun LeskovWebView(
           if(location.origin!=='https://lesv.online' || window.top!==window) return;
           function install(){
             if(!document.documentElement || !document.head) return false;
-            document.documentElement.setAttribute('data-leskov-app','');
+            if (location.pathname !== '/messages.php' && !document.body?.classList.contains('messages-page')) document.documentElement.setAttribute('data-leskov-app','');
             var viewport=document.querySelector('meta[name="viewport"]');
             if(!viewport){viewport=document.createElement('meta');viewport.name='viewport';document.head.appendChild(viewport);}
             viewport.content='width=device-width, initial-scale=1, viewport-fit=cover';
@@ -215,12 +215,12 @@ fun LeskovWebView(
                         val url = state.optString("url")
                         if (!WebNavigation.isTrustedUri(Uri.parse(url))) return@runCatching
                         if (clearHistoryAfterLogout) return@runCatching
-                        if (state.has("lightTheme")) viewModel.onWebsiteThemeChanged(state.optBoolean("lightTheme"))
                         viewModel.onUrlChanged(url)
                         viewModel.onLanguageDetected(state.optString("language"))
                         val userId = state.optInt("userId", -1)
+                        val lightTheme = if (state.has("lightTheme")) state.optBoolean("lightTheme") else null
                         if (userId >= 0) {
-                            viewModel.onUserSessionDetected(userId)
+                            viewModel.onUserSessionDetected(userId, lightTheme)
                             FcmTokenManager.publishCurrentState(context, this@apply, userId,
                                 com.example.model.AppLanguage.fromCode(state.optString("language")))
                         }

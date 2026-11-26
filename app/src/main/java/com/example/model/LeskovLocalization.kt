@@ -51,6 +51,16 @@ object LeskovStrings {
         AppLanguage.EN -> "Unable to continue this track. Check your connection and access."
     }
 
+    fun sheetNotificationCenter(lang: AppLanguage): String = when (lang) {
+        AppLanguage.RU -> "Центр уведомлений"
+        AppLanguage.ET -> "Teavituskeskus"
+        AppLanguage.EN -> "Notification center"
+    }
+    fun sheetNotificationCenterSubtitle(lang: AppLanguage): String = when (lang) {
+        AppLanguage.RU -> "Сообщения и события аккаунта"
+        AppLanguage.ET -> "Sõnumid ja konto sündmused"
+        AppLanguage.EN -> "Messages and account activity"
+    }
     fun sheetNotifications(lang: AppLanguage): String = when (lang) {
         AppLanguage.RU -> "Уведомления"
         AppLanguage.ET -> "Teavitused"

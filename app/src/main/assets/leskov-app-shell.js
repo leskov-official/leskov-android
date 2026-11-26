@@ -54,57 +54,16 @@
             .then(function(state){if(Number.isInteger(state.user_id)){sessionUserId=state.user_id;publish();}})
             .catch(function(){sessionRequested=false;});
     }
-    function dialogs() {
-        if (!document.body || !document.body.classList.contains('messages-page')) return;
-        var thread=document.getElementById('messageThread');
-        var composer=document.getElementById('messageComposer');
-        var active=document.body.getAttribute('data-active-user');
-        var selected=!!thread && !!composer && (active===null || Number(active)>0);
-        document.body.classList.toggle('is-leskov-thread',selected);
-        document.body.classList.toggle('is-leskov-dialogs',!selected);
-        if (selected && !document.getElementById('leskov-dialogs-back')) {
-            var head=document.querySelector('.messenger-head');
-            if (head) {
-                var link=document.createElement('a');link.id='leskov-dialogs-back';link.href='/messages.php?lang='+encodeURIComponent((document.documentElement.lang||'ru').slice(0,2));
-                link.textContent=({ru:'‹ Диалоги',et:'‹ Vestlused',en:'‹ Conversations'}[(document.documentElement.lang||'ru').slice(0,2)] || '‹ Conversations');
-                head.prepend(link);
-            }
-        }
-    }
-    // The website's multi-photo input has no visible selection state in the supplied
-    // messenger markup. Keep the actual FileList intact; submit via its existing form.
-    function photoSelection() {
-        var input=document.getElementById('messageImagesInput');
-        var form=document.getElementById('messageComposer');
-        if (!input || !form || input.form!==form) return;
-        var status=document.getElementById('leskov-photo-selection');
-        var count=input.files ? input.files.length : 0;
-        if (!count) {if (status) status.remove();return;}
-        var lang=(document.documentElement.lang||'ru').slice(0,2);
-        var labels={ru:['Фото выбрано: ','Убрать фото'],et:['Valitud fotod: ','Eemalda fotod'],en:['Photos selected: ','Remove photos']}[lang] || ['Photos selected: ','Remove photos'];
-        if (!status) {
-            status=document.createElement('div');status.id='leskov-photo-selection';
-            var text=document.createElement('span');text.setAttribute('role','status');
-            var clear=document.createElement('button');clear.type='button';
-            clear.addEventListener('click',function(){
-                var current=document.getElementById('messageImagesInput');
-                if (!current || current.disabled) return;
-                current.value='';current.dispatchEvent(new Event('change',{bubbles:true}));
-            });
-            status.append(text,clear);
-            var tools=form.querySelector('.compose-tools');
-            if (tools) tools.before(status);else form.append(status);
-        }
-        var label=labels[0]+count;
-        if (status.firstElementChild.textContent!==label) status.firstElementChild.textContent=label;
-        var button=status.lastElementChild;
-        if (button.textContent!==labels[1]) button.textContent=labels[1];
-        if (button.disabled!==input.disabled) button.disabled=input.disabled;
+    function useSiteMessengerLayout() {
+        var root=document.documentElement;
+        var nativeSite=location.pathname === '/messages.php' || (!!document.body && document.body.classList.contains('messages-page'));
+        if (nativeSite) root.removeAttribute('data-leskov-app');
+        else if (!root.hasAttribute || !root.hasAttribute('data-leskov-app')) root.setAttribute('data-leskov-app','');
     }
     function refresh() {
         scheduled=false;
         if (!document.documentElement || !document.head) return;
-        document.documentElement.setAttribute('data-leskov-app','');
+        useSiteMessengerLayout();
         var viewport=document.querySelector('meta[name="viewport"]');
         if (!viewport) {viewport=document.createElement('meta');viewport.name='viewport';document.head.appendChild(viewport);}
         if (viewport.content!=='width=device-width, initial-scale=1, viewport-fit=cover') {
@@ -112,7 +71,7 @@
         }
         var badge=document.getElementById('leskov-native-playback-badge');
         if (badge) badge.remove();
-        dialogs(); photoSelection(); pushControls(); publish(); session();
+        pushControls(); publish(); session();
     }
     function schedule() {
         if (!scheduled) { scheduled=true; requestAnimationFrame(refresh); }
@@ -164,7 +123,6 @@
             pushControls();
         }
     };
-    document.addEventListener('change',function(e) {if(e.target && e.target.id==='messageImagesInput') photoSelection();});
     document.addEventListener('leskov:soft-navigation',function() {refresh();});
     window.addEventListener('popstate',schedule);
     if (typeof window.matchMedia==='function') {var mq=window.matchMedia('(prefers-color-scheme: light)'); if(mq.addEventListener) mq.addEventListener('change',schedule);}

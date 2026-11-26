@@ -524,6 +524,7 @@ fun LeskovApp(
         if (uiState.showMoreSheet) {
             LeskovMoreBottomSheet(
                 isLoggedIn = uiState.isLoggedIn,
+                currentUserId = uiState.currentUserId,
                 language = uiState.language,
                 onDismiss = { viewModel.toggleMoreSheet(false) },
                 onNavigateUrl = { targetUrl ->
