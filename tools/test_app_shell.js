@@ -6,7 +6,7 @@ const source=fs.readFileSync(path.join(__dirname,'../app/src/main/assets/leskov-
 let checks=0;
 function check(actual,expected){assert.deepEqual(actual,expected);checks++;}
 function fixture(origin='https://lesv.online'){
- const events={},states=[],push=[],viewport={content:''},button={disabled:true,setAttribute(){},classList:{toggle(){}}},status={textContent:'Web Push unsupported'};
+ const events={},states=[],push=[],viewport={content:''},button={disabled:true,getAttribute(){return null;},setAttribute(){},classList:{toggle(){}}},status={textContent:'Web Push unsupported'};
  let active=false,accepted=true,calls=0;
  const document={documentElement:{lang:'ru',setAttribute(){}},head:{},body:{getAttribute:()=> '42',hasAttribute:()=>true,classList:{contains:()=>false}},
   querySelector(selector){if(selector==='meta[name="viewport"]')return viewport; if(active&&selector==='#callOverlay:not([hidden])')return {};return null;},

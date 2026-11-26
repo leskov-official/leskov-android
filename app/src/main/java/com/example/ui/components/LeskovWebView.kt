@@ -112,6 +112,9 @@ fun LeskovWebView(
                 javaScriptCanOpenWindowsAutomatically = false
                 setSupportMultipleWindows(false)
                 allowFileAccess = false
+                allowFileAccessFromFileURLs = false
+                allowUniversalAccessFromFileURLs = false
+                safeBrowsingEnabled = true
                 allowContentAccess = true
                 mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                 cacheMode = WebSettings.LOAD_DEFAULT
@@ -233,7 +236,7 @@ fun LeskovWebView(
                     }
 
                     // External URLs open safely via system intent
-                    if (request.isForMainFrame) {
+                    if (request.isForMainFrame && request.hasGesture()) {
                         openExternalUri(context, uri, viewModel::showMessage)
                     }
                     return true
@@ -332,13 +335,17 @@ fun LeskovWebView(
                     fileChooserParams: FileChooserParams?
                 ): Boolean {
                     if (filePathCallback == null || fileChooserParams == null) return false
+                    if (!isInternalUri(Uri.parse(webView?.url.orEmpty()))) {
+                        filePathCallback.onReceiveValue(null)
+                        return true
+                    }
                     return onFileChooserRequested(filePathCallback, fileChooserParams)
                 }
 
                 override fun onPermissionRequest(request: PermissionRequest?) {
                     if (request == null) return
                     val origin = request.origin
-                    if (origin.scheme != "https" || origin.host != LeskovConstants.HOST) {
+                    if (!isInternalUri(origin) || !isInternalUri(Uri.parse(this@apply.url.orEmpty()))) {
                         request.deny()
                         return
                     }

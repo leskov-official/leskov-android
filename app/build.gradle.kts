@@ -26,13 +26,13 @@ android {
     applicationId = "com.aistudio.leskov.musix"
     minSdk = 26
     targetSdk = 36
-    versionCode = 10
-    versionName = "3.4.2"
+    versionCode = 11
+    versionName = "3.4.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
-  // Release signing is enabled only when a REAL upload key is configured.
+  // Release signing uses the existing developer app-signing key for direct APK distribution.
   // Unconfigured builds remain unsigned: Gradle can compile, but cannot publish them.
   val uploadKeyPath = System.getenv("KEYSTORE_PATH")
   val canSignRelease = !uploadKeyPath.isNullOrBlank() &&

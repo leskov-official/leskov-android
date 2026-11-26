@@ -29,6 +29,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -193,7 +196,9 @@ class MainActivity : ComponentActivity() {
     ) { result ->
         if (pendingFilePathCallback != null) {
             val uriResult = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
-            pendingFilePathCallback?.onReceiveValue(uriResult)
+            pendingFilePathCallback?.onReceiveValue(
+                uriResult?.filter { it.scheme == "content" }?.takeIf { it.isNotEmpty() && isTrustedCurrentPage() }?.toTypedArray()
+            )
             pendingFilePathCallback = null
         }
     }
@@ -372,6 +377,7 @@ fun LeskovApp(
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding()
             .background(LeskovBackground),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) { data -> LeskovSnackbar(data) } },
@@ -401,7 +407,9 @@ fun LeskovApp(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
                 .windowInsetsPadding(WindowInsets.statusBars)
+                .then(if (uiState.isCallActive) Modifier.navigationBarsPadding() else Modifier)
                 .background(LeskovBackground)
         ) {
             // Main WebView remains persistent in the hierarchy to retain state, cookies & playback
