@@ -4,21 +4,22 @@
   <p><strong>Music. Community. Conversation.</strong></p>
   <p>Музыка, сцена и личная история в одном современном пространстве.</p>
 
+
   [![Android CI](https://github.com/leskov-official/leskov-android/actions/workflows/android.yml/badge.svg?branch=main)](https://github.com/leskov-official/leskov-android/actions/workflows/android.yml)
   [![Android 8+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/about/versions/oreo)
   [![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
-  [![Release candidate](https://img.shields.io/badge/version-3.4.9%20RC-2863d9)](https://github.com/leskov-official/leskov-android/releases)
+  [![GitHub release](https://img.shields.io/github/v/release/leskov-official/leskov-android?label=release&color=2863d9)](https://github.com/leskov-official/leskov-android/releases)
 
-  **[Official website](https://lesv.online/) · [Download](https://lesv.online/install.php) · [Releases](https://github.com/leskov-official/leskov-android/releases) · [Support](mailto:info@lesv.info)**
+  **[Official website](https://lesv.online/) · [Download](https://lesv.online/install.php) · [Releases](https://github.com/leskov-official/leskov-android/releases) · [Packages](https://github.com/users/leskov-official/packages?repo_name=leskov-android) · [Support](mailto:info@lesv.info)**
 </div>
 
 ---
 
 Official Android client for [LESKOV](https://lesv.online/), a platform for artists and their communities. Discover content, listen to music and keep in touch in one app. The Android client integrates the website with native navigation, media controls, file selection and notifications.
 
-> **Release status:** 3.4.9 / versionCode 17 is a release candidate. Build, signing, security review and real-device acceptance are required before distribution. Debug APKs are for testing only.
+> **Distribution:** the [Releases page](https://github.com/leskov-official/leskov-android/releases) is the authoritative list of published versions. Version 3.4.9 (versionCode 17) is the build documented below. Debug APKs are for testing only.
 
-**[Experience](#experience) · [What's new](#whats-new-in-349) · [Installation](#download-and-install) · [Developers](#developer-setup) · [Release workflow](#maintainer-release-workflow) · [Security](#security-and-privacy) · [Documentation](#документация--documentation)**
+**[Experience](#experience) · [What's new](#whats-new-in-349) · [Installation](#download-and-install) · [Developers](#developer-setup) · [Release workflow](#maintainer-release-workflow) · [Verification](#release-verification--349) · [Security](#security-and-privacy) · [Documentation](#документация--documentation)**
 
 ## Experience
 
@@ -59,7 +60,7 @@ flowchart LR
 - Density-independent LESKOV monogram for media, push and Firebase default notification icons. SystemUI chooses tint and size. The original owner-supplied festive logo is retained byte-for-byte as the app and round icon.
 - Existing attachment, messaging, logout, signing and security rules are retained.
 
-See the [3.4.9 acceptance notes](docs/ANDROID_3_4_9_RU.md). The previous APK's VirusTotal result and OSV report do not certify a new binary. Android and OEM launchers may mask the app icon or use cached icons temporarily; the status bar is monochrome by design.
+See the [3.4.9 acceptance notes](docs/ANDROID_3_4_9_RU.md). Security results are specific to the exact binary; see the verification section below. Android and OEM launchers may mask the app icon or use cached icons temporarily; the status bar is monochrome by design.
 
 ## Для пользователей / For users
 
@@ -69,9 +70,30 @@ LESKOV объединяет музыку, публикации, общение �
 
 - Official website: [lesv.online/install.php](https://lesv.online/install.php)
 - Official repository: [leskov-official/leskov-android](https://github.com/leskov-official/leskov-android)
-- Published builds: [GitHub Releases](https://github.com/leskov-official/leskov-android/releases), when available.
+- Published builds: [GitHub Releases](https://github.com/leskov-official/leskov-android/releases). APK files are release assets; [GitHub Packages](https://github.com/users/leskov-official/packages?repo_name=leskov-android) is a separate package registry.
 
 Use only a verified signed release APK. Compare the SHA-256 checksum with the release notes. Keep Google Play Protect enabled. If installation is blocked as harmful, stop and contact the developer. The web app is available as an alternative.
+
+## Release verification · 3.4.9
+
+Recorded on 27 November 2026 for the exact candidate from [signed build #7](https://github.com/leskov-official/leskov-android/actions/runs/45983888176).
+
+| Check | Recorded result |
+|---|---|
+| Source | `100b418` (merge of PR #8) |
+| CI and signed build | Successful |
+| APK and AAB checksum validation | Passed |
+| OSV runtime dependency audit | 151 modules; no known findings |
+| VirusTotal | [0/66 detections](https://www.virustotal.com/gui/file/6733f8ecb668755467b7f2918f32cadff765e351ec8328a45863836ff67483f8) |
+| Sandbox behavior | No detections, IDS or Sigma matches reported; 9 informational MITRE signatures |
+
+**APK SHA-256**
+
+```text
+6733f8ecb668755467b7f2918f32cadff765e351ec8328a45863836ff67483f8
+```
+
+Compare the downloaded APK against this digest. These results apply to the exact binary, not to subsequent rebuilds. They do not prove the absence of all vulnerabilities or malicious behavior. Certificate verification and device acceptance remain mandatory release gates.
 
 ## Previous release · 3.4.8
 
@@ -99,7 +121,7 @@ Use only a verified signed release APK. Compare the SHA-256 checksum with the re
 
 ## Developer setup
 
-Install JDK 21, Android SDK platform 36, build tools 36.0.0, Gradle 9.3.1, Python 3, Node.js and PHP CLI for the backend fixture tests. The wrapper JAR is not present in this source distribution; use installed Gradle or generate the wrapper with a trusted Gradle installation.
+For the 3.4.9 source tag, install JDK 21, Android SDK platform 36, build tools 36.0.0, Gradle 9.3.1, Python 3, Node.js and PHP CLI for the backend fixture tests. For newer branches, use the Gradle version pinned in the corresponding CI and wrapper configuration. Gradle 9.3.1 is historical and outside the current upstream support line; upgrade and test the toolchain separately. The wrapper JAR is not present in this source distribution; use installed Gradle or generate the wrapper with a trusted Gradle installation.
 
 ```bash
 python3 -m pip install PyYAML playwright
@@ -127,7 +149,7 @@ In GitHub repository **Settings → Secrets and variables → Actions**, configu
 
 Configure the **Variable** `RELEASE_CERT_SHA256` with the independently known SHA-256 fingerprint of the existing app-signing certificate. Obtain it from a trusted original release or key, not from the candidate you are trying to verify. No secret values belong in the README, commits, logs or chat.
 
-Protect `main`, review workflow changes and restrict write access before running signing jobs. Keep an encrypted offline backup of the existing key.
+Protect `main`, review workflow changes, require passing CI before merges and restrict write access before running signing jobs. Run signing only from trusted, reviewed source; never expose signing secrets to untrusted pull requests. Keep an encrypted offline backup of the existing key.
 
 Run **Actions → LESKOV Android — signed release candidate → Run workflow → main**. Download `LESKOV-3.4.9-signed-candidate` after all steps succeed. It contains a signed APK, AAB, APK and AAB signature reports, package metadata, OSV audit evidence, SHA256SUMS and source commit. Verify locally:
 
