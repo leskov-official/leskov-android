@@ -24,8 +24,8 @@ def markup(selected, winter, friends=False):
               '<form id="messageComposer" class="compose-box" data-live-message-send><div class="lsv-compose-input-shell"><textarea id="messageInput" name="message"></textarea><div class="lsv-compose-inline-actions"><button type="button" class="site-btn">Mic</button><button type="button" class="site-btn">Video</button><button class="site-btn" type="submit">Send</button></div></div><div class="compose-tools"><label class="site-btn">Загрузить файл<input type="file" name="message_image" id="messageFileInput" hidden></label><label class="site-btn">Фото<input type="file" name="message_images[]" id="messageImagesInput" accept="image/*" multiple hidden></label><button type="button" class="site-btn">Стикеры</button><button type="button" class="site-btn">Подарки</button></div></form>') if selected else '<p>Выберите диалог</p>'
     return f'''<!doctype html><html lang="ru" class="{'lsv-winter-ice lsv-season-on' if winter else ''}"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body class="app-shell messages-page" data-current-user-id="7" data-active-user="{42 if selected else 0}">{'<div class="lsv-season-garland"></div>' if winter else ''}<div class="messenger-layout"><aside class="messenger-sidebar surface-card"><a>Профиль</a><a>Секретные переписки</a><input id="messengerSearch"><div class="sidebar-headline"><h1>Диалоги</h1></div><div data-messenger-dialogs style="{'display:none' if friends else ''}">{rows}</div><div data-messenger-friends style="{'display:block' if friends else 'display:none'}">{rows}</div></aside><main class="messenger-main surface-card">{thread}</main></div></body></html>'''
 
-# The previous test required a native two-pane replacement. That contradicted the
-# requested browser layout. Compare identical markup with/without injected shell.
+# Keep the website layout rather than restoring the old two-pane replacement.
+# Test only the native geometry corrections.
 with sync_playwright() as pw:
     browser = pw.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH'), args=['--no-sandbox','--disable-dev-shm-usage'])
     page = browser.new_page()
@@ -41,18 +41,23 @@ with sync_playwright() as pw:
                     page.add_style_tag(content=SITE + '@media(max-width:850px){.messenger-layout{display:grid;grid-template-columns:1fr}.profile-player-fab{position:fixed;bottom:40px;right:12px}.lsv-season-controls{position:fixed;bottom:90px;left:12px}}')
                     for file in os.environ.get('LESKOV_SITE_CSS','').split(os.pathsep):
                         if file: page.add_style_tag(path=file)
-                    geometry="""()=>[...document.querySelectorAll('.messenger-layout,.messenger-sidebar,.messenger-main,.user-list-item,.messenger-head,#messageThread,#messageComposer,.profile-player-fab,.lsv-season-controls,.lsv-season-garland')].map(e=>{let r=e.getBoundingClientRect(),s=getComputedStyle(e);return [r.x,r.y,r.width,r.height,s.display,s.position,s.overflowY,s.fontSize]})"""
-                    baseline=page.evaluate(geometry)
                     page.evaluate("document.documentElement.setAttribute('data-leskov-app','')")
                     style=page.add_style_tag(path=ASSETS/'leskov-mobile.css')
                     if os.environ.get('APP_CSS_FIRST')=='1': style.evaluate('(e)=>document.head.prepend(e)')
                     page.add_script_tag(content='(function(location){'+(ASSETS/'leskov-app-shell.js').read_text()+'})(window.__fixtureLocation=new URL("https://lesv.online/messages.php"));')
                     assert not page.evaluate("document.documentElement.hasAttribute('data-leskov-app')")
-                    assert page.evaluate(geometry)==baseline,(width,winter,selected,theme)
+                    assert page.evaluate("document.documentElement.hasAttribute('data-leskov-native')")
+                    assert page.locator('.messenger-layout').evaluate('(e)=>e.getBoundingClientRect().width<=innerWidth')
+                    if selected:
+                        assert page.locator('#messageThread').evaluate('(e)=>{e.scrollTop=100;return e.scrollTop>0 && e.scrollHeight>e.clientHeight}')
+                        assert page.locator('#messageComposer').evaluate('(e)=>e.scrollWidth<=e.clientWidth+1')
+                        page.locator('#messageComposer').evaluate("""e=>{let badge=document.createElement('div');badge.className='selected-upload-badge';badge.style.display='flex';badge.innerHTML='<span class="selected-upload-badge__label">File</span><span class="selected-upload-badge__name">'+ 'long_filename_'.repeat(30)+'.jpg</span><button type="button" class="ui-clear-btn">×</button>';e.append(badge)}""")
+                        assert page.locator('.selected-upload-badge').evaluate('(e)=>e.scrollWidth<=e.clientWidth+1')
+                        assert page.locator('.ui-clear-btn').evaluate('(e)=>e.getBoundingClientRect().right<=innerWidth')
                     assert page.locator('#leskov-dialogs-back').count()==0
                     # Subsequent theme/DOM refreshes cannot accidentally re-enable overrides.
                     page.evaluate('window.__leskovAppShell.refresh()')
-                    assert page.evaluate(geometry)==baseline
+                    assert not page.evaluate("document.documentElement.hasAttribute('data-leskov-app')")
                     if selected:
                         photo=page.locator('#messageImagesInput')
                         photo.set_input_files([{'name':f'photo-{i}.png','mimeType':'image/png','buffer':b'fixture'} for i in range(3)])
@@ -61,4 +66,4 @@ with sync_playwright() as pw:
                     page.evaluate("window.__fixtureLocation.pathname='/profile.php';document.body.classList.remove('messages-page');window.__leskovAppShell.refresh()")
                     assert page.evaluate("document.documentElement.hasAttribute('data-leskov-app')")
                     count+=1
-    browser.close();print(f'PASS {count} messenger browser-parity scenarios; native shell does not change site geometry')
+    browser.close();print(f'PASS {count} messenger scenarios: site design retained with native scroll and width constraints')

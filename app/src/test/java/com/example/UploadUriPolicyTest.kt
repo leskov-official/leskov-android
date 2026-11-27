@@ -47,6 +47,14 @@ class UploadUriPolicyTest {
         assertFalse(file.getBooleanExtra(Intent.EXTRA_ALLOW_MULTIPLE, true))
     }
 
+    @Test fun `photo chooser is distinct from mixed document selection`() {
+        assertTrue(UploadUriPolicy.isPhotoSelection(arrayOf("image/*,.jpg,.png")))
+        assertTrue(UploadUriPolicy.isPhotoSelection(arrayOf("image/*", ".jpeg", ".webp")))
+        assertFalse(UploadUriPolicy.isPhotoSelection(arrayOf("image/*", "application/pdf")))
+        assertFalse(UploadUriPolicy.isPhotoSelection(arrayOf("*/*")))
+        assertFalse(UploadUriPolicy.isPhotoSelection(arrayOf(".png")))
+    }
+
     @Test fun `only explicit grant for external content provider is accepted`() {
         assertTrue(permits("content://files/document/42"))
         assertFalse(permits("file:///data/local/file"))

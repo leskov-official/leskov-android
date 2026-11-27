@@ -64,10 +64,10 @@ object LeskovNotificationBrand {
     fun logo(context: Context): Bitmap {
         val size = (48 * context.resources.displayMetrics.density).roundToInt().coerceIn(48, 192)
         cached?.takeIf { !it.isRecycled && it.width == size }?.let { return it }
-        val source = BitmapFactory.decodeResource(context.resources, R.drawable.leskov_logo,
+        val source = BitmapFactory.decodeResource(context.resources, R.drawable.leskov_application_icon,
             BitmapFactory.Options().apply { inScaled = false })
         val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val inset = size * 0.12f
+        val inset = size * 0.035f
         Canvas(output).apply {
             val clip = Path().apply { addCircle(size / 2f, size / 2f, size / 2f - inset, Path.Direction.CW) }
             save(); clipPath(clip)

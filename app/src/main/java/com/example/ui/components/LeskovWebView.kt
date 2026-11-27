@@ -75,6 +75,7 @@ fun LeskovWebView(
           if(location.origin!=='https://lesv.online' || window.top!==window) return;
           function install(){
             if(!document.documentElement || !document.head) return false;
+            document.documentElement.setAttribute('data-leskov-native','');
             if (location.pathname !== '/messages.php' && !document.body?.classList.contains('messages-page')) document.documentElement.setAttribute('data-leskov-app','');
             var viewport=document.querySelector('meta[name="viewport"]');
             if(!viewport){viewport=document.createElement('meta');viewport.name='viewport';document.head.appendChild(viewport);}

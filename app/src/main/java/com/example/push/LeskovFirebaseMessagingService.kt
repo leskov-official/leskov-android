@@ -84,7 +84,7 @@ class LeskovFirebaseMessagingService : FirebaseMessagingService() {
 
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
             // CRITICAL: Monochrome white silhouette vector drawable on transparent background
-            .setSmallIcon(R.drawable.ic_notification_leskov)
+            .setSmallIcon(R.drawable.ic_notification_leskov_brand)
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)
@@ -92,7 +92,7 @@ class LeskovFirebaseMessagingService : FirebaseMessagingService() {
             .setColor(0xFF527FF5.toInt()) // LESKOV Accent glow brand tint
 
         if (largeIconBitmap != null) notificationBuilder.setLargeIcon(largeIconBitmap)
-        else if (!LeskovNotificationPolicy.isMessage(type)) notificationBuilder.setLargeIcon(LeskovNotificationBrand.logo(this))
+        else notificationBuilder.setLargeIcon(LeskovNotificationBrand.logo(this))
 
         notificationBuilder.setSubText(nm.getNotificationChannel(channelId)?.name)
         notificationBuilder.setShowWhen(true).setWhen(System.currentTimeMillis())

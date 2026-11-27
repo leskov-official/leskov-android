@@ -148,7 +148,7 @@ class MainActivity : ComponentActivity() {
                         } else {
                             pendingFilePathCallback = callback
                             try {
-                                val intent = UploadUriPolicy.documentIntent(params.acceptTypes,
+                                val intent = UploadUriPolicy.chooserIntent(this@MainActivity, params.acceptTypes,
                                     params.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE)
                                 fileChooserLauncher.launch(intent)
                             } catch (_: Exception) {

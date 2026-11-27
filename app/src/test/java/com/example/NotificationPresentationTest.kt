@@ -63,7 +63,7 @@ class NotificationPresentationTest {
         assertEquals(Notification.VISIBILITY_PRIVATE, posted.visibility)
         assertEquals("A long message body", posted.extras.getCharSequence(Notification.EXTRA_BIG_TEXT).toString())
         assertEquals("https://lesv.online/messages.php?user=42", shadowOf(posted.contentIntent).savedIntent.data.toString())
-        assertEquals(R.drawable.ic_notification_leskov, posted.smallIcon.resId)
+        assertEquals(R.drawable.ic_notification_leskov_brand, posted.smallIcon.resId)
         assertNull(posted.group)
     }
 }
