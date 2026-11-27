@@ -30,7 +30,7 @@ check('Generated R and BuildConfig namespace matches Kotlin sources',
       'applicationId = "com.aistudio.leskov.musix"' in s)
 media=(root/'app/src/main/java/com/example/media/LeskovMediaService.kt').read_text()
 check('Unresolved audioManager assignment removed', 'audioManager = getSystemService' not in media)
-check('Media notification uses LESKOV monochrome icon', '.setSmallIcon(R.drawable.ic_notification_leskov_wordmark)' in media)
+check('Media notification uses LESKOV monochrome icon', '.setSmallIcon(R.drawable.ic_notification_leskov_brand)' in media)
 web=(root/'app/src/main/java/com/example/ui/components/LeskovWebView.kt').read_text()
 check('Secure origin-limited WebMessageListener used', 'WebViewCompat.addWebMessageListener' in web)
 check('JavascriptInterface not used for audio bridge', 'addJavascriptInterface(' not in web)

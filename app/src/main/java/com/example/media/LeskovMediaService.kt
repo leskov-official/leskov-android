@@ -371,7 +371,7 @@ class LeskovMediaService : Service() {
             .setContentTitle(title)
             .setContentText(artist)
             .setSubText("LESKOV")
-            .setSmallIcon(R.drawable.ic_notification_leskov_wordmark)
+            .setSmallIcon(R.drawable.ic_notification_leskov_brand)
             .setContentIntent(openPendingIntent)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setCategory(Notification.CATEGORY_TRANSPORT)

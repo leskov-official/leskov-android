@@ -480,3 +480,42 @@ html[data-leskov-app] #leskov-photo-selection button {
     color:inherit; border:0; background:transparent; padding:4px 6px; font-size:11px;
     text-decoration:underline; cursor:pointer;
 }
+
+/* 3.4.8: native-only layout corrections, retaining the site's messenger design. */
+html[data-leskov-native] body.messages-page .messenger-layout,
+html[data-leskov-native] body.messages-page .messenger-main,
+html[data-leskov-native] body.messages-page #messageComposer,
+html[data-leskov-native] body.messages-page #messageThread {
+    min-width: 0 !important; max-width: 100% !important; box-sizing: border-box !important;
+}
+html[data-leskov-native] body.messages-page #messageThread {
+    min-height: min(120px, 30dvh) !important;
+    max-height: 48dvh !important; overflow-y: auto !important; overflow-x: hidden !important;
+    overscroll-behavior-y: contain !important; touch-action: pan-y !important;
+    -webkit-overflow-scrolling: touch; scrollbar-gutter: auto !important;
+}
+html[data-leskov-native] body.messages-page #messageComposer :is(.lsv-compose-input-shell,.compose-tools,.selected-upload-badge,.upload-progress,.upload-progress__meta,.upload-progress__name,.selected-upload-badge__name,#messageInput) {
+    min-width: 0 !important; max-width: 100% !important; box-sizing: border-box !important;
+}
+html[data-leskov-native] body.messages-page #messageComposer :is(.selected-upload-badge__name,.upload-progress__name) {
+    flex: 1 1 0% !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important;
+}
+html[data-leskov-native] body.messages-page #messageComposer :is(.ui-clear-btn,.selected-upload-badge__label,.upload-progress__percent) { flex-shrink: 0 !important; }
+html[data-leskov-native] body.messages-page #messageComposer [data-message-photo-selection] {display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+html[data-leskov-native] body.messages-page #messageComposer :is(.upload-progress,.selected-upload-badge)[hidden] {display:none!important;}
+html[data-leskov-native] body.messages-page #messageComposer .compose-tools > * {min-width:0!important; max-width:100%!important; box-sizing:border-box!important;}
+html[data-leskov-native] body.messages-page #messageComposer .lsv-compose-input-shell {width:100%!important;}
+html[data-leskov-native] body.messages-page #messageComposer #messageInput {flex:1 1 0%; width:0;}
+html[data-leskov-native] body.messages-page #messageThread :is(.message-bubble,.message-file-link) {min-width:0!important; max-width:100%!important; overflow-wrap:anywhere;}
+@media (max-width: 980px) {
+    html[data-leskov-native] body.messages-page .messenger-layout { width:calc(100% - 12px)!important; max-width:100%!important; grid-template-columns:minmax(0,1fr)!important; }
+    html[data-leskov-native] body.messages-page .messenger-main {grid-template-columns:minmax(0,1fr)!important; grid-template-rows:none!important; grid-auto-rows:auto!important; min-height:0!important;}
+    html[data-leskov-native] body.messages-page #messageComposer .compose-tools {grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+}
+/* The native bottom bar is outside the WebView: do not reserve its height again. */
+@media (max-width: 760px) {
+    html[data-leskov-native].lesv-visual-mobile body > .lsv-season-controls,
+    html[data-leskov-native] body > .lsv-season-controls { bottom:calc(100px + env(safe-area-inset-bottom) + var(--lesv-vv-bottom,0px))!important; }
+    html[data-leskov-native].lesv-visual-mobile body > [data-home-event-reopen],
+    html[data-leskov-native] body > [data-home-event-reopen] { bottom:calc(36px + env(safe-area-inset-bottom) + var(--lesv-vv-bottom,0px))!important; }
+}

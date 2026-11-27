@@ -56,6 +56,7 @@
     }
     function useSiteMessengerLayout() {
         var root=document.documentElement;
+        root.setAttribute('data-leskov-native','');
         var nativeSite=location.pathname === '/messages.php' || (!!document.body && document.body.classList.contains('messages-page'));
         if (nativeSite) root.removeAttribute('data-leskov-app');
         else if (!root.hasAttribute || !root.hasAttribute('data-leskov-app')) root.setAttribute('data-leskov-app','');

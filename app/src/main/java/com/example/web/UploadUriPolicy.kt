@@ -7,17 +7,35 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Process
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 
 /** A picker result is untrusted. Never pass an arbitrary local URI to WebView. */
 object UploadUriPolicy {
-    // Use the system Documents UI, not an OEM GET_CONTENT/photo-picker redirect.
-    // Documents providers return an explicit per-URI read grant, including multi-select.
-    fun documentIntent(acceptTypes: Array<String>, multiple: Boolean): Intent {
-        val types = acceptTypes.flatMap { it.split(',') }.map { it.trim().lowercase(java.util.Locale.ROOT) }
+    private fun mimeTypes(acceptTypes: Array<String>) = acceptTypes.flatMap { it.split(',') }.map { it.trim().lowercase(java.util.Locale.ROOT) }
             .filter { it.isNotEmpty() }.map { type ->
                 if (type.startsWith('.')) MimeTypeMap.getSingleton().getMimeTypeFromExtension(type.drop(1)) ?: "*/*"
                 else if (type.contains('/')) type else "*/*"
             }.distinct()
+
+    internal fun isPhotoSelection(acceptTypes: Array<String>): Boolean {
+        val types = mimeTypes(acceptTypes)
+        return "image/*" in types && types.all { it.startsWith("image/") }
+    }
+
+    fun chooserIntent(context: Context, acceptTypes: Array<String>, multiple: Boolean): Intent {
+        // Only the explicit image wildcard (the site's Photo button) requests Photo Picker.
+        // Mixed files, PDFs, audio and video keep the system document picker.
+        if (isPhotoSelection(acceptTypes)) {
+            val request = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+            return if (multiple) ActivityResultContracts.PickMultipleVisualMedia(10).createIntent(context, request)
+            else ActivityResultContracts.PickVisualMedia().createIntent(context, request)
+        }
+        return documentIntent(acceptTypes, multiple)
+    }
+
+    fun documentIntent(acceptTypes: Array<String>, multiple: Boolean): Intent {
+        val types = mimeTypes(acceptTypes)
         return Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
