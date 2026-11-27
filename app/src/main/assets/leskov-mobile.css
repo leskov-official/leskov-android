@@ -512,10 +512,50 @@ html[data-leskov-native] body.messages-page #messageThread :is(.message-bubble,.
     html[data-leskov-native] body.messages-page .messenger-main {grid-template-columns:minmax(0,1fr)!important; grid-template-rows:none!important; grid-auto-rows:auto!important; min-height:0!important;}
     html[data-leskov-native] body.messages-page #messageComposer .compose-tools {grid-template-columns:repeat(2,minmax(0,1fr))!important;}
 }
-/* The native bottom bar is outside the WebView: do not reserve its height again. */
-@media (max-width: 760px) {
-    html[data-leskov-native].lesv-visual-mobile body > .lsv-season-controls,
-    html[data-leskov-native] body > .lsv-season-controls { bottom:calc(100px + env(safe-area-inset-bottom) + var(--lesv-vv-bottom,0px))!important; }
-    html[data-leskov-native].lesv-visual-mobile body > [data-home-event-reopen],
-    html[data-leskov-native] body > [data-home-event-reopen] { bottom:calc(36px + env(safe-area-inset-bottom) + var(--lesv-vv-bottom,0px))!important; }
+/* 3.4.9: native WebView already excludes the Compose bottom bar and system insets.
+   Applies to guests, members, all pages, soft navigation and tablet/landscape.
+   Preserve site-owned visibility, expanded winter tools and modal suppression. */
+html[data-leskov-native]:root body > .lsv-season-controls,
+html[data-leskov-native]:root.lesv-visual-mobile body > .lsv-season-controls {
+    position:fixed!important; top:auto!important; right:auto!important;
+    left:calc(max(12px,env(safe-area-inset-left)) + var(--lesv-vv-left,0px))!important;
+    bottom:calc(12px + var(--lesv-vv-bottom,0px))!important;
+    transform:none!important;
+}
+html[data-leskov-native]:root body > [data-home-event-reopen],
+html[data-leskov-native]:root.lesv-visual-mobile body > [data-home-event-reopen] {
+    position:fixed!important; top:auto!important; right:auto!important;
+    left:calc(max(12px,env(safe-area-inset-left)) + var(--lesv-vv-left,0px))!important;
+    bottom:calc(12px + var(--lesv-vv-bottom,0px))!important;
+}
+/* When both controls exist, keep the 54px holiday button below winter tools. */
+html[data-leskov-native]:root body:has(> [data-home-event-reopen]:not([hidden])) > .lsv-season-controls,
+html[data-leskov-native]:root.lesv-visual-mobile body:has(> [data-home-event-reopen]:not([hidden])) > .lsv-season-controls {
+    bottom:calc(76px + var(--lesv-vv-bottom,0px))!important;
+}
+
+/* LESKOV 3.4.9: one dark pause ink for every shared and catalog video player. */
+html[data-theme="dark"] body :is(.leskov-player.leskov-player--video :is(.leskov-player__center-btn,.leskov-player__btn--play),.catalog-player button:is(.cv-center,.cv-primary)) :is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon),
+html[data-theme="dark"] body :is(.leskov-player.leskov-player--video :is(.leskov-player__center-btn,.leskov-player__btn--play),.catalog-player button:is(.cv-center,.cv-primary)) :is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon) svg {color:#081321!important;stroke:#081321!important;fill:none!important;}
+html[data-theme="dark"] body :is(.leskov-player.leskov-player--video :is(.leskov-player__center-btn,.leskov-player__btn--play),.catalog-player button:is(.cv-center,.cv-primary)) :is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon) svg :is(path,line,rect,polyline) {color:#081321!important;stroke:#081321!important;fill:none!important;}
+@media(prefers-color-scheme:dark){
+html[data-theme="auto"] body :is(.leskov-player.leskov-player--video :is(.leskov-player__center-btn,.leskov-player__btn--play),.catalog-player button:is(.cv-center,.cv-primary)) :is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon),
+html[data-theme="auto"] body :is(.leskov-player.leskov-player--video :is(.leskov-player__center-btn,.leskov-player__btn--play),.catalog-player button:is(.cv-center,.cv-primary)) :is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon) svg {color:#081321!important;stroke:#081321!important;fill:none!important;}
+html[data-theme="auto"] body :is(.leskov-player.leskov-player--video :is(.leskov-player__center-btn,.leskov-player__btn--play),.catalog-player button:is(.cv-center,.cv-primary)) :is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon) svg :is(path,line,rect,polyline) {color:#081321!important;stroke:#081321!important;fill:none!important;}
+}
+
+/* Legacy feed/video-circle controls: preserve filled SVGs and contrast. */
+html[data-theme="dark"] body :is(.leskov-player.leskov-player--video :is(.leskov-player__center-btn,.leskov-player__btn--play),.catalog-player button:is(.cv-center,.cv-primary)) :is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon) svg :is(path,rect,polygon)[fill="currentColor"] {fill:#081321!important;stroke:none!important;}
+html[data-theme="dark"] body :is(.custom-media-player.is-video.is-playing,.custom-media-player[data-kind="video"].is-playing) :is(.site-chip-btn[data-media-toggle],.video-circle-timeline__center-btn) {color:#081321!important;background:linear-gradient(135deg,#7aa5ff,#80dfd3)!important;}
+html[data-theme="dark"] body :is(.custom-media-player.is-video.is-playing,.custom-media-player[data-kind="video"].is-playing) .site-chip-btn[data-media-toggle]::before {color:#081321!important;content:"Ⅱ";}
+html[data-theme="dark"] body :is(.custom-media-player.is-video.is-playing,.custom-media-player[data-kind="video"].is-playing) [data-media-toggle] .custom-media-player__overlay-icon {color:#081321!important;}
+html[data-theme="dark"] body :is(.custom-media-player.is-video.is-playing,.custom-media-player[data-kind="video"].is-playing) :is(.custom-media-player__overlay[data-media-toggle],.custom-media-player__overlay [data-media-toggle]) .custom-media-player__overlay-icon {background:linear-gradient(135deg,#7aa5ff,#80dfd3)!important;}
+html[data-theme="dark"] body :is(.custom-media-player.is-video.is-playing,.custom-media-player[data-kind="video"].is-playing) [data-media-toggle] .custom-media-player__overlay-icon svg :is(path,rect)[fill="currentColor"] {fill:#081321!important;stroke:none!important;}
+@media(prefers-color-scheme:dark){
+html[data-theme="auto"] body :is(.leskov-player.leskov-player--video :is(.leskov-player__center-btn,.leskov-player__btn--play),.catalog-player button:is(.cv-center,.cv-primary)) :is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon):is(.icon-pause,.cv-pause-icon) svg :is(path,rect,polygon)[fill="currentColor"] {fill:#081321!important;stroke:none!important;}
+html[data-theme="auto"] body :is(.custom-media-player.is-video.is-playing,.custom-media-player[data-kind="video"].is-playing) :is(.site-chip-btn[data-media-toggle],.video-circle-timeline__center-btn) {color:#081321!important;background:linear-gradient(135deg,#7aa5ff,#80dfd3)!important;}
+html[data-theme="auto"] body :is(.custom-media-player.is-video.is-playing,.custom-media-player[data-kind="video"].is-playing) .site-chip-btn[data-media-toggle]::before {color:#081321!important;content:"Ⅱ";}
+html[data-theme="auto"] body :is(.custom-media-player.is-video.is-playing,.custom-media-player[data-kind="video"].is-playing) [data-media-toggle] .custom-media-player__overlay-icon {color:#081321!important;}
+html[data-theme="auto"] body :is(.custom-media-player.is-video.is-playing,.custom-media-player[data-kind="video"].is-playing) :is(.custom-media-player__overlay[data-media-toggle],.custom-media-player__overlay [data-media-toggle]) .custom-media-player__overlay-icon {background:linear-gradient(135deg,#7aa5ff,#80dfd3)!important;}
+html[data-theme="auto"] body :is(.custom-media-player.is-video.is-playing,.custom-media-player[data-kind="video"].is-playing) [data-media-toggle] .custom-media-player__overlay-icon svg :is(path,rect)[fill="currentColor"] {fill:#081321!important;stroke:none!important;}
 }

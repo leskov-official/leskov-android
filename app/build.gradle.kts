@@ -26,8 +26,8 @@ android {
     applicationId = "com.aistudio.leskov.musix"
     minSdk = 26
     targetSdk = 36
-    versionCode = 16
-    versionName = "3.4.8"
+    versionCode = 17
+    versionName = "3.4.9"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

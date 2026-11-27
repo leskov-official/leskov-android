@@ -3,6 +3,7 @@
     <color name="leskov_background">#090B17</color>
     <color name="leskov_surface">#111428</color>
     <color name="leskov_accent">#9B8CFB</color>
+    <color name="leskov_notification_accent">#7AA5FF</color>
     <color name="splash_background">#FFFFFF</color>
 
     <!-- Main App Theme (Dark LESKOV) -->

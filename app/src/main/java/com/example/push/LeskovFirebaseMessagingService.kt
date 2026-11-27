@@ -89,7 +89,7 @@ class LeskovFirebaseMessagingService : FirebaseMessagingService() {
             .setContentText(body)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .setColor(0xFF527FF5.toInt()) // LESKOV Accent glow brand tint
+            .setColor(getColor(R.color.leskov_notification_accent)) // Same tint as media and FCM default
 
         if (largeIconBitmap != null) notificationBuilder.setLargeIcon(largeIconBitmap)
         else notificationBuilder.setLargeIcon(LeskovNotificationBrand.logo(this))
