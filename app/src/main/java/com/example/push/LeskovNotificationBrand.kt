@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.RectF
 import com.example.R
 import kotlin.math.roundToInt
@@ -67,13 +66,10 @@ object LeskovNotificationBrand {
         val source = BitmapFactory.decodeResource(context.resources, R.drawable.leskov_application_icon,
             BitmapFactory.Options().apply { inScaled = false })
         val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val inset = size * 0.035f
+        val inset = size * 0.025f
         Canvas(output).apply {
-            val clip = Path().apply { addCircle(size / 2f, size / 2f, size / 2f - inset, Path.Direction.CW) }
-            save(); clipPath(clip)
             drawBitmap(source, null, RectF(inset, inset, size - inset, size - inset),
                 Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
-            restore()
         }
         cached = output
         return output

@@ -377,7 +377,7 @@ class LeskovMediaService : Service() {
             .setCategory(Notification.CATEGORY_TRANSPORT)
             .setOngoing(playing)
             .setShowWhen(false)
-            .setColor(0xFF9B8CFB.toInt())
+            .setColor(getColor(R.color.leskov_notification_accent))
 
         // Show arrows only when the website has confirmed its playlist supports them.
         if (canPrevious) builder.addAction(android.R.drawable.ic_media_previous, "Назад", previousPendingIntent)

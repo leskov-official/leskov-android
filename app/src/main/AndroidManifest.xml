@@ -42,7 +42,7 @@
             android:resource="@drawable/ic_notification_leskov_brand" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
-            android:resource="@color/leskov_accent" />
+            android:resource="@color/leskov_notification_accent" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="leskov_system_channel" />

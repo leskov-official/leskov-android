@@ -110,11 +110,17 @@ _icon_files = list((root/'app/src/main/res').glob('*/leskov_application_icon.*')
 _icon = root/'app/src/main/res/drawable-nodpi/leskov_application_icon.png'
 check('Original application icon has no density or adaptive override', _icon_files == [_icon])
 _icon_bytes = _icon.read_bytes() if _icon.is_file() else b''
-check('Application icon is original website PNG (SHA-256)',
-      hashlib.sha256(_icon_bytes).hexdigest() == '0cf5febfc71737db8291b4ed4326ee8bfec44a68968ce54a6253d938a94b2b7f')
+check('Application icon is owner-supplied original PNG (SHA-256)',
+      hashlib.sha256(_icon_bytes).hexdigest() == '08a31964eb52fcc50ab702e2e80ef7720a7f4419986588c8212fc5b4d5183600')
 check('Original application icon has 512x512 RGBA pixels', len(_icon_bytes) >= 26 and
       _icon_bytes[:8] == b'\x89PNG\r\n\x1a\n' and _icon_bytes[12:16] == b'IHDR' and
       struct.unpack('>II', _icon_bytes[16:24]) == (512, 512) and _icon_bytes[24:26] == b'\x08\x06')
+res = root/'app/src/main/res'
+_small_files = list(res.glob('*/ic_notification_leskov_brand.*'))
+_small_xml = res/'drawable/ic_notification_leskov_brand.xml'
+check('Single density-independent vector notification resource', _small_files == [_small_xml] and ET.parse(_small_xml).getroot().tag == 'vector')
+check('FCM default and push use the same icon as MediaStyle', '@drawable/ic_notification_leskov_brand' in manifest and '.setSmallIcon(R.drawable.ic_notification_leskov_brand)' in (root/'app/src/main/java/com/example/push/LeskovFirebaseMessagingService.kt').read_text())
+check('Notification tint resource shared by FCM, push and media', '@color/leskov_notification_accent' in manifest and 'getColor(R.color.leskov_notification_accent)' in media and 'getColor(R.color.leskov_notification_accent)' in (root/'app/src/main/java/com/example/push/LeskovFirebaseMessagingService.kt').read_text())
 check('Guest authorization gate is compact', '.widthIn(max = 370.dp)' in auth)
 check('Direct feed URL is never replaced with profile navigation', 'path = "feed.php"' in (root/'app/src/main/java/com/example/model/NavigationItem.kt').read_text())
 check('Navigation awaits actual PHP load for currentUrl', 'currentUrl = targetUrl' not in (root/'app/src/main/java/com/example/viewmodel/LeskovViewModel.kt').read_text().split('fun onTabSelected(')[1].split('fun clearAppCache(')[0])

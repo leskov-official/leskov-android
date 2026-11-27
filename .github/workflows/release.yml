@@ -46,6 +46,7 @@ jobs:
           python3 tools/test_dialog_layout.py
           APP_CSS_FIRST=1 python3 tools/test_dialog_layout.py
           python3 tools/test_player_viewport.py
+          python3 tools/test_final_ui.py
       - name: Load real Firebase configuration
         env:
           FIREBASE_ANDROID_CONFIG_BASE64: ${{ secrets.FIREBASE_ANDROID_CONFIG_BASE64 }}
@@ -65,7 +66,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: LESKOV-3.4.8-dependency-audit
+          name: LESKOV-3.4.9-dependency-audit
           path: app/build/reports/security/
           if-no-files-found: warn
           retention-days: 14
@@ -103,14 +104,14 @@ jobs:
           LC_ALL=C keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab > release-output/aab-certificate.txt
           python3 tools/verify_aab_certificate.py release-output/aab-certificate.txt
           cp app/build/reports/security/release-dependencies.tsv app/build/reports/security/osv-report.json release-output/
-          cp "$APK" release-output/LESKOV-3.4.8.apk
-          cp app/build/outputs/bundle/release/app-release.aab release-output/LESKOV-3.4.8.aab
-          (cd release-output && sha256sum LESKOV-3.4.8.apk LESKOV-3.4.8.aab > SHA256SUMS.txt)
+          cp "$APK" release-output/LESKOV-3.4.9.apk
+          cp app/build/outputs/bundle/release/app-release.aab release-output/LESKOV-3.4.9.aab
+          (cd release-output && sha256sum LESKOV-3.4.9.apk LESKOV-3.4.9.aab > SHA256SUMS.txt)
           printf '%s\n' "$GITHUB_SHA" > release-output/source-commit.txt
       - name: Upload candidate (not a public release)
         uses: actions/upload-artifact@v6
         with:
-          name: LESKOV-3.4.8-signed-candidate
+          name: LESKOV-3.4.9-signed-candidate
           path: release-output/
           if-no-files-found: error
           retention-days: 14
