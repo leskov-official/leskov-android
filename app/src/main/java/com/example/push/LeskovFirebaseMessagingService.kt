@@ -49,8 +49,10 @@ class LeskovFirebaseMessagingService : FirebaseMessagingService() {
 
 
         val type = data["type"] ?: "system"
+        val recipient = data["recipient_id"]?.toIntOrNull()
+        if (recipient != null && !FcmTokenManager.matchesRegisteredRecipient(this, recipient)) return
         val title = (data["title"] ?: notification?.title ?: "LESKOV").take(160)
-        val body = (data["body"] ?: notification?.body ?: "").take(3000)
+        val body = (data["body"] ?: notification?.body ?: "").take(4096)
         val targetUrl = data["target_url"] ?: data["url"]
         val collapseKey = data["collapse_id"] ?: remoteMessage.collapseKey
 
@@ -76,7 +78,8 @@ class LeskovFirebaseMessagingService : FirebaseMessagingService() {
         }
         val pendingIntent = PendingIntent.getActivity(this, notificationId, clickIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val largeIconBitmap = LeskovNotificationBrand.logo(this)
+        val largeIconBitmap = if (LeskovNotificationPolicy.isMessage(type))
+            LeskovNotificationBrand.senderAvatar(extraData["avatar_url"]) else null
         val channelId = LeskovNotificationPolicy.channel(type)
 
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
@@ -88,9 +91,8 @@ class LeskovFirebaseMessagingService : FirebaseMessagingService() {
             .setContentIntent(pendingIntent)
             .setColor(0xFF527FF5.toInt()) // LESKOV Accent glow brand tint
 
-        if (largeIconBitmap != null) {
-            notificationBuilder.setLargeIcon(largeIconBitmap)
-        }
+        if (largeIconBitmap != null) notificationBuilder.setLargeIcon(largeIconBitmap)
+        else if (!LeskovNotificationPolicy.isMessage(type)) notificationBuilder.setLargeIcon(LeskovNotificationBrand.logo(this))
 
         notificationBuilder.setSubText(nm.getNotificationChannel(channelId)?.name)
         notificationBuilder.setShowWhen(true).setWhen(System.currentTimeMillis())

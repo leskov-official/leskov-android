@@ -217,6 +217,17 @@ object FcmTokenManager {
         }.addOnFailureListener { recordTokenFailure(context, it); report("token_failed") }
     }
 
+    fun isRegisteredForUser(context: Context, userId: Int): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val token = getSavedToken(context) ?: return false
+        return userId > 0 && isFirebaseConfigured(context) &&
+            androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled() &&
+            prefs.getBoolean("delivery_verified", false) && !prefs.getBoolean(KEY_TOKEN_FAILURE, false) &&
+            prefs.getString(KEY_LAST_SYNCED_USER, "") == "$userId:${token.hashCode()}"
+    }
+
+    fun matchesRegisteredRecipient(context: Context, userId: Int): Boolean = isRegisteredForUser(context, userId)
+
     fun publishCurrentState(context: Context, webView: WebView, userId: Int, language: AppLanguage) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val marker = prefs.getString(KEY_LAST_SYNCED_USER, "").orEmpty()

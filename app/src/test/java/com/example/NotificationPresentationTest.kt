@@ -34,6 +34,10 @@ class NotificationPresentationTest {
         }
         assertEquals("https://lesv.online/messages.php?user=42",
             LeskovNotificationPolicy.target("message", null, mapOf("sender_id" to "42")).toString())
+        assertEquals("https://lesv.online/messages.php?user=42",
+            LeskovNotificationPolicy.target("message", "https://lesv.online/notifications.php?group=messages", mapOf("sender_id" to "42")).toString())
+        assertEquals("https://lesv.online/messages.php", LeskovNotificationPolicy.target("new_message", "/notifications.php").toString())
+        assertEquals("https://lesv.online/notifications.php?group=messages", LeskovNotificationPolicy.target("secret_request", "/notifications.php?group=messages").toString())
         assertEquals(FcmTokenManager.CHANNEL_MESSAGES, LeskovNotificationPolicy.channel("message_new"))
         assertEquals(FcmTokenManager.CHANNEL_POSTS, LeskovNotificationPolicy.channel("group_post"))
     }

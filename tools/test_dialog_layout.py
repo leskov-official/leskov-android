@@ -24,57 +24,41 @@ def markup(selected, winter, friends=False):
               '<form id="messageComposer" class="compose-box" data-live-message-send><div class="lsv-compose-input-shell"><textarea id="messageInput" name="message"></textarea><div class="lsv-compose-inline-actions"><button type="button" class="site-btn">Mic</button><button type="button" class="site-btn">Video</button><button class="site-btn" type="submit">Send</button></div></div><div class="compose-tools"><label class="site-btn">Загрузить файл<input type="file" name="message_image" id="messageFileInput" hidden></label><label class="site-btn">Фото<input type="file" name="message_images[]" id="messageImagesInput" accept="image/*" multiple hidden></label><button type="button" class="site-btn">Стикеры</button><button type="button" class="site-btn">Подарки</button></div></form>') if selected else '<p>Выберите диалог</p>'
     return f'''<!doctype html><html lang="ru" class="{'lsv-winter-ice lsv-season-on' if winter else ''}"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body class="app-shell messages-page" data-current-user-id="7" data-active-user="{42 if selected else 0}">{'<div class="lsv-season-garland"></div>' if winter else ''}<div class="messenger-layout"><aside class="messenger-sidebar surface-card"><a>Профиль</a><a>Секретные переписки</a><input id="messengerSearch"><div class="sidebar-headline"><h1>Диалоги</h1></div><div data-messenger-dialogs style="{'display:none' if friends else ''}">{rows}</div><div data-messenger-friends style="{'display:block' if friends else 'display:none'}">{rows}</div></aside><main class="messenger-main surface-card">{thread}</main></div></body></html>'''
 
+# The previous test required a native two-pane replacement. That contradicted the
+# requested browser layout. Compare identical markup with/without injected shell.
 with sync_playwright() as pw:
     browser = pw.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH'), args=['--no-sandbox','--disable-dev-shm-usage'])
     page = browser.new_page()
-    def setup(selected,winter,friends=False):
-        page.goto('about:blank')
-        page.set_content(markup(selected,winter,friends))
-        # Production WebView may inject its CSS before the site's stylesheets.
-        if os.environ.get('APP_CSS_FIRST') == '1': page.add_style_tag(path=ASSETS/'leskov-mobile.css')
-        page.add_style_tag(content=SITE)
-        for file in os.environ.get('LESKOV_SITE_CSS','').split(os.pathsep):
-            if file: page.add_style_tag(path=file)
-        if os.environ.get('APP_CSS_FIRST') != '1': page.add_style_tag(path=ASSETS/'leskov-mobile.css')
-        # Inject a fixture origin only into the test script, never into shipped assets.
-        page.add_script_tag(content='(function(location){'+(ASSETS/'leskov-app-shell.js').read_text()+'})(new URL("https://lesv.online/messages.php"));')
     count=0
-    for width in (320,360,412):
+    for width in (320,360,412,768):
         for winter in (False,True):
-            page.set_viewport_size({'width':width,'height':720})
-            for friends in (False,True):
-                setup(False,winter,friends)
-                assert page.locator('.messenger-main').is_hidden()
-                if winter:
-                    assert page.locator('.messenger-layout').evaluate('(e)=>e.getBoundingClientRect().top>=56')
-                assert page.locator('.messenger-sidebar').evaluate('(e)=>{e.scrollTop=e.scrollHeight;return e.scrollTop>0 && e.scrollHeight>e.clientHeight}')
-                target='[data-messenger-friends]' if friends else '[data-messenger-dialogs]'
-                assert page.locator(target+' a').last.evaluate('(e)=>e.getBoundingClientRect().bottom<=innerHeight+1')
-                assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
-                count+=1
-            setup(True,winter)
-            assert page.locator('.messenger-sidebar').is_hidden()
-            assert page.locator('#leskov-dialogs-back').count()==1
-            assert page.locator('.messenger-head .messenger-peer-bio').evaluate("e=>getComputedStyle(e).whiteSpace==='nowrap' && e.clientHeight<=22 && e.scrollWidth>e.clientWidth")
-            assert page.locator('#messageThread').evaluate('(e)=>e.clientHeight>=innerHeight*0.46'), page.locator('#messageThread').bounding_box()
-            assert page.locator('#messageThread').evaluate('(e)=>e.getBoundingClientRect().width>=innerWidth-32')
-            assert page.locator('.compose-tools').evaluate('(e)=>e.getBoundingClientRect().bottom<=innerHeight+1')
-            photo=page.locator('#messageImagesInput')
-            for n in (1,4):
-                photo.set_input_files([{'name':f'photo-{i}.png','mimeType':'image/png','buffer':b'fixture'} for i in range(n)])
-                assert page.locator('#leskov-photo-selection').inner_text().startswith(f'Фото выбрано: {n}')
-                assert page.locator('#messageComposer').evaluate("e=>new FormData(e).getAll('message_images[]').filter(f=>f.size>0).length")==n
-                page.locator('#leskov-photo-selection button').click()
-                assert page.locator('#leskov-photo-selection').count()==0
-            page.locator('#messageFileInput').set_input_files({'name':'test.pdf','mimeType':'application/pdf','buffer':b'fixture'})
-            assert page.locator('#messageComposer').evaluate("e=>new FormData(e).get('message_image').name")=='test.pdf'
-            page.locator('#messageFileInput').set_input_files([])
-            assert page.locator('#messageThread').evaluate('(e)=>{e.scrollTop=100;window.__leskovAppShell.refresh();return e.scrollTop===100 && e.clientHeight>=96}')
-            for height in (720,340):
-                page.set_viewport_size({'width':width,'height':height})
-                page.locator('#messageInput').scroll_into_view_if_needed()
-                assert page.locator('#messageInput').evaluate('(e)=>{const r=e.getBoundingClientRect();return r.top>=-1 && r.bottom<=innerHeight+1}')
-                assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
-                count+=1
-    browser.close()
-    print(f'PASS {count} dialog / friends / conversation viewport scenarios')
+            for selected in (False,True):
+                for theme in ('light','dark'):
+                    page.set_viewport_size({'width':width,'height':720})
+                    page.goto('about:blank')
+                    page.set_content(markup(selected,winter).replace('</body>','<button class="profile-player-fab">▶</button><button class="lsv-season-controls">❄</button></body>'))
+                    page.evaluate('(theme)=>document.documentElement.dataset.theme=theme',theme)
+                    page.add_style_tag(content=SITE + '@media(max-width:850px){.messenger-layout{display:grid;grid-template-columns:1fr}.profile-player-fab{position:fixed;bottom:40px;right:12px}.lsv-season-controls{position:fixed;bottom:90px;left:12px}}')
+                    for file in os.environ.get('LESKOV_SITE_CSS','').split(os.pathsep):
+                        if file: page.add_style_tag(path=file)
+                    geometry="""()=>[...document.querySelectorAll('.messenger-layout,.messenger-sidebar,.messenger-main,.user-list-item,.messenger-head,#messageThread,#messageComposer,.profile-player-fab,.lsv-season-controls,.lsv-season-garland')].map(e=>{let r=e.getBoundingClientRect(),s=getComputedStyle(e);return [r.x,r.y,r.width,r.height,s.display,s.position,s.overflowY,s.fontSize]})"""
+                    baseline=page.evaluate(geometry)
+                    page.evaluate("document.documentElement.setAttribute('data-leskov-app','')")
+                    style=page.add_style_tag(path=ASSETS/'leskov-mobile.css')
+                    if os.environ.get('APP_CSS_FIRST')=='1': style.evaluate('(e)=>document.head.prepend(e)')
+                    page.add_script_tag(content='(function(location){'+(ASSETS/'leskov-app-shell.js').read_text()+'})(window.__fixtureLocation=new URL("https://lesv.online/messages.php"));')
+                    assert not page.evaluate("document.documentElement.hasAttribute('data-leskov-app')")
+                    assert page.evaluate(geometry)==baseline,(width,winter,selected,theme)
+                    assert page.locator('#leskov-dialogs-back').count()==0
+                    # Subsequent theme/DOM refreshes cannot accidentally re-enable overrides.
+                    page.evaluate('window.__leskovAppShell.refresh()')
+                    assert page.evaluate(geometry)==baseline
+                    if selected:
+                        photo=page.locator('#messageImagesInput')
+                        photo.set_input_files([{'name':f'photo-{i}.png','mimeType':'image/png','buffer':b'fixture'} for i in range(3)])
+                        assert photo.evaluate('(e)=>new FormData(e.form).getAll(e.name).length')==3
+                    # A different page still receives the app's original chrome styles.
+                    page.evaluate("window.__fixtureLocation.pathname='/profile.php';document.body.classList.remove('messages-page');window.__leskovAppShell.refresh()")
+                    assert page.evaluate("document.documentElement.hasAttribute('data-leskov-app')")
+                    count+=1
+    browser.close();print(f'PASS {count} messenger browser-parity scenarios; native shell does not change site geometry')

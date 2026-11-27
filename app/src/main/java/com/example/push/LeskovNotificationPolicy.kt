@@ -4,9 +4,24 @@ import android.net.Uri
 import com.example.web.WebNavigation
 
 object LeskovNotificationPolicy {
+    fun isMessage(type: String): Boolean = type.lowercase() in setOf("message", "message_new", "new_message", "chat_message", "chat", "direct")
+
     fun target(type: String, rawUrl: String?, data: Map<String, String> = emptyMap()): Uri {
         val raw = rawUrl?.trim().orEmpty()
         val parsed = raw.takeIf { it.isNotBlank() }?.let { runCatching { Uri.parse(it) }.getOrNull() }
+        if (isMessage(type)) {
+            val peer = (data["sender_id"] ?: data["peer_id"])?.toLongOrNull()?.takeIf { it > 0 }
+            if (peer != null) return Uri.parse("https://lesv.online/messages.php?user=$peer")
+            val candidate = when {
+                WebNavigation.isTrustedUri(parsed) -> parsed
+                parsed != null && parsed.scheme == null && parsed.authority == null && !raw.startsWith("\\") ->
+                    Uri.parse("https://lesv.online/" + raw.trimStart('/'))
+                else -> null
+            }
+            if (candidate != null && WebNavigation.isTrustedUri(candidate) && candidate.path == "/messages.php" &&
+                (candidate.getQueryParameter("user")?.toLongOrNull() ?: 0L) > 0) return candidate
+            return Uri.parse("https://lesv.online/messages.php")
+        }
         if (WebNavigation.isTrustedUri(parsed)) return parsed!!
         if (parsed != null && parsed.scheme == null && parsed.authority == null && !raw.startsWith("\\")) {
             val relative = Uri.parse("https://lesv.online/" + raw.trimStart('/'))
@@ -25,7 +40,7 @@ object LeskovNotificationPolicy {
 
     fun channel(type: String): String = when (type.lowercase()) {
         "call", "incoming_call", "call_missed" -> FcmTokenManager.CHANNEL_CALLS
-        "message", "message_new", "chat", "direct" -> FcmTokenManager.CHANNEL_MESSAGES
+        "message", "message_new", "new_message", "chat_message", "chat", "direct", "secret_request", "secret_accepted", "secret_declined" -> FcmTokenManager.CHANNEL_MESSAGES
         "social", "reaction", "like", "friend", "friend_request", "gift" -> FcmTokenManager.CHANNEL_SOCIAL
         "post", "release", "music", "group_post" -> FcmTokenManager.CHANNEL_POSTS
         else -> FcmTokenManager.CHANNEL_SYSTEM

@@ -367,14 +367,58 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `website theme does not reset guest selected tab`() {
+  fun `guest stays dark without resetting selected tab`() {
     val vm = LeskovViewModel(app)
     vm.onUserSessionDetected(0)
     vm.onTabSelected(3)
     vm.onWebsiteThemeChanged(true)
     vm.onUrlChanged("https://lesv.online/index.php?lang=ru")
-    assertTrue(vm.uiState.value.lightWebsiteTheme)
+    assertFalse(vm.uiState.value.lightWebsiteTheme)
     assertTrue(vm.uiState.value.showAuthGate)
     assertEquals(3, vm.uiState.value.selectedTabIndex)
   }
+
+  @Test
+  fun `confirmed logout immediately resets light chrome and guest reports cannot restore it`() {
+    val vm = LeskovViewModel(app)
+    vm.onUserSessionDetected(42, true)
+    assertTrue(vm.uiState.value.lightWebsiteTheme)
+    val id = requireNotNull(vm.beginLogout())
+    vm.onWebsiteThemeChanged(false)
+    vm.onUserSessionDetected(0, false)
+    assertTrue(vm.uiState.value.lightWebsiteTheme)
+    assertFalse(vm.finishLogout("other", true))
+    assertTrue(vm.finishLogout(id, true))
+    assertFalse(vm.uiState.value.isLoggedIn)
+    assertFalse(vm.uiState.value.lightWebsiteTheme)
+    assertEquals(0, vm.uiState.value.selectedTabIndex)
+    vm.onWebsiteThemeChanged(true)
+    vm.onUserSessionDetected(0, true)
+    assertFalse(vm.uiState.value.lightWebsiteTheme)
+    vm.onUserSessionDetected(42, true)
+    assertTrue(vm.uiState.value.lightWebsiteTheme)
+  }
+
+  @Test
+  fun `failed logout preserves light theme and independent session expiry resets it`() {
+    val vm = LeskovViewModel(app)
+    vm.onUserSessionDetected(42, true)
+    val id = requireNotNull(vm.beginLogout())
+    assertTrue(vm.finishLogout(id, false))
+    assertTrue(vm.uiState.value.isLoggedIn)
+    assertTrue(vm.uiState.value.lightWebsiteTheme)
+    vm.onUserSessionDetected(0, true)
+    assertFalse(vm.uiState.value.lightWebsiteTheme)
+    vm.onUserSessionDetected(42)
+    assertFalse(vm.uiState.value.lightWebsiteTheme)
+    vm.onUserSessionDetected(42, true)
+    vm.onUserSessionDetected(42)
+    assertTrue(vm.uiState.value.lightWebsiteTheme)
+    vm.onUserSessionDetected(43)
+    assertFalse(vm.uiState.value.lightWebsiteTheme)
+    vm.onUserSessionDetected(43, true)
+    vm.onUserSessionDetected(43, false)
+    assertFalse(vm.uiState.value.lightWebsiteTheme)
+  }
+
 }

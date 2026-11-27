@@ -303,6 +303,7 @@ class LeskovMediaService : Service() {
         if (playbackDurationMs > 0L) metadata.putLong(MediaMetadata.METADATA_KEY_DURATION, playbackDurationMs)
         val image = artworkBitmap ?: LeskovNotificationBrand.logo(this)
         if (image != null) metadata.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, image)
+        metadata.putBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON, LeskovNotificationBrand.logo(this))
         s.setMetadata(metadata.build())
     }
 
@@ -370,7 +371,7 @@ class LeskovMediaService : Service() {
             .setContentTitle(title)
             .setContentText(artist)
             .setSubText("LESKOV")
-            .setSmallIcon(R.drawable.ic_notification_leskov)
+            .setSmallIcon(R.drawable.ic_notification_leskov_wordmark)
             .setContentIntent(openPendingIntent)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setCategory(Notification.CATEGORY_TRANSPORT)

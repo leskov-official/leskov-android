@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Static checks, not a replacement for Android Gradle or on-device tests."""
 from pathlib import Path
-import re, subprocess, sys, xml.etree.ElementTree as ET
+import hashlib, re, struct, subprocess, sys, xml.etree.ElementTree as ET
 root=Path(__file__).resolve().parents[1]
 errors=[];passed=[]
 
@@ -30,7 +30,7 @@ check('Generated R and BuildConfig namespace matches Kotlin sources',
       'applicationId = "com.aistudio.leskov.musix"' in s)
 media=(root/'app/src/main/java/com/example/media/LeskovMediaService.kt').read_text()
 check('Unresolved audioManager assignment removed', 'audioManager = getSystemService' not in media)
-check('Media notification uses LESKOV monochrome icon', '.setSmallIcon(R.drawable.ic_notification_leskov)' in media)
+check('Media notification uses LESKOV monochrome icon', '.setSmallIcon(R.drawable.ic_notification_leskov_wordmark)' in media)
 web=(root/'app/src/main/java/com/example/ui/components/LeskovWebView.kt').read_text()
 check('Secure origin-limited WebMessageListener used', 'WebViewCompat.addWebMessageListener' in web)
 check('JavascriptInterface not used for audio bridge', 'addJavascriptInterface(' not in web)
@@ -97,7 +97,24 @@ check('No second native player or handoff', 'LeskovMiniPlayer(' not in main and 
 check('Media notification publishes real duration', 'METADATA_KEY_DURATION' in media)
 check('Media playlist arrows depend on site capabilities', 'if (canNext) builder.addAction' in media)
 check('Artwork bitmaps are downsampled for memory safety', 'inJustDecodeBounds = true' in media and '512' in media)
-check('Adaptive launcher has white backing', '#FFFFFFFF' in (root/'app/src/main/res/drawable/ic_launcher_background.xml').read_text())
+# The installer and launcher must resolve the original website image, not the old adaptive layers.
+_android_ns = '{http://schemas.android.com/apk/res/android}'
+_application = ET.fromstring(manifest).find('application')
+_icon_ref = '@drawable/leskov_application_icon'
+check('Application and round icon use identical original LESKOV bitmap',
+      _application is not None and all(_application.get(_android_ns + name) == _icon_ref for name in ('icon', 'roundIcon')))
+check('Launcher does not override original application icon', _application is not None and
+      all(not node.get(_android_ns + 'icon') and not node.get(_android_ns + 'roundIcon')
+          for tag in ('activity', 'activity-alias') for node in _application.findall(tag)))
+_icon_files = list((root/'app/src/main/res').glob('*/leskov_application_icon.*'))
+_icon = root/'app/src/main/res/drawable-nodpi/leskov_application_icon.png'
+check('Original application icon has no density or adaptive override', _icon_files == [_icon])
+_icon_bytes = _icon.read_bytes() if _icon.is_file() else b''
+check('Application icon is original website PNG (SHA-256)',
+      hashlib.sha256(_icon_bytes).hexdigest() == '0cf5febfc71737db8291b4ed4326ee8bfec44a68968ce54a6253d938a94b2b7f')
+check('Original application icon has 512x512 RGBA pixels', len(_icon_bytes) >= 26 and
+      _icon_bytes[:8] == b'\x89PNG\r\n\x1a\n' and _icon_bytes[12:16] == b'IHDR' and
+      struct.unpack('>II', _icon_bytes[16:24]) == (512, 512) and _icon_bytes[24:26] == b'\x08\x06')
 check('Guest authorization gate is compact', '.widthIn(max = 370.dp)' in auth)
 check('Direct feed URL is never replaced with profile navigation', 'path = "feed.php"' in (root/'app/src/main/java/com/example/model/NavigationItem.kt').read_text())
 check('Navigation awaits actual PHP load for currentUrl', 'currentUrl = targetUrl' not in (root/'app/src/main/java/com/example/viewmodel/LeskovViewModel.kt').read_text().split('fun onTabSelected(')[1].split('fun clearAppCache(')[0])

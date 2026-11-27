@@ -29,6 +29,9 @@ class UploadUriPolicyTest {
             clipData = ClipData.newRawUri("photos", first).apply { addItem(ClipData.Item(second)) }
         }
         assertArrayEquals(arrayOf(first, second), UploadUriPolicy.pickerSelection(Activity.RESULT_OK, intent))
+        val third = Uri.parse("content://files/document/3")
+        assertArrayEquals(arrayOf(first, second, third), UploadUriPolicy.pickerSelection(Activity.RESULT_OK, Intent(intent).setData(third)))
+        assertArrayEquals(arrayOf(first, second), UploadUriPolicy.pickerSelection(Activity.RESULT_OK, Intent(intent).setData(first)))
         assertArrayEquals(arrayOf(first), UploadUriPolicy.pickerSelection(Activity.RESULT_OK, Intent().setData(first)))
         assertNull(UploadUriPolicy.pickerSelection(Activity.RESULT_CANCELED, intent))
         assertNull(UploadUriPolicy.pickerSelection(Activity.RESULT_OK, Intent()))
